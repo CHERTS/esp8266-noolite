@@ -1,0 +1,4 @@
+#Directories
+build
+*.cmd
+*.vsd
