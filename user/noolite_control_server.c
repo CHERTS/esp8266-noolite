@@ -8,13 +8,21 @@
 #include "noolite_control_server.h"
 #include "flash_param.h"
 #include "noolite_platform.h"
+#include "utils.h"
+
+//Private data for http connection
+struct HttpdPriv {
+	char *sendBuff;
+	int sendBuffLen;
+};
+
+//Connection pool
+static HttpdPriv connPrivData[MAX_CONN];
+static HttpdConnData connControlData[MAX_CONN];
 
 static struct espconn esp_conn;
 static esp_tcp esptcp;
 static unsigned char killConn;
-// http headers
-static const char *http404Header = "HTTP/1.0 404 Not Found\r\nServer: nooLite-Control-Server\r\nContent-Type: text/plain\r\n\r\nNot Found (or method not implemented).\r\n";
-static const char *http200Header = "HTTP/1.0 200 OK\r\nServer: nooLite-Control-Server/0.1\r\nContent-Type: text/html\r\n";
 // html page header and footer
 static const char *pageStart = "<html><head><title>nooLite Control Panel</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"set\" value=\"1\">\r\n";
 static const char *pageEnd = "</form><hr>(c) 2014 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
@@ -71,85 +79,104 @@ static void ICACHE_FLASH_ATTR noolite_control_server_recon(void *arg, sint8 err)
 }
 #endif
 
-#ifdef NOOLITE_LOGGING
 static void ICACHE_FLASH_ATTR noolite_control_server_discon(void *arg)
 {
-    ets_uart_printf("noolite_control_server_discon\r\n");
+	#ifdef NOOLITE_LOGGING
+	ets_uart_printf("noolite_control_server_discon\r\n");
+	#endif
+	//Just look at all the sockets and kill the slot if needed.
+	int i;
+	for (i=0; i<MAX_CONN; i++) {
+		if (connControlData[i].conn!=NULL) {
+			//Why the >=ESPCONN_CLOSE and not ==? Well, seems the stack sometimes de-allocates
+			//espconns under our noses, especially when connections are interrupted. The memory
+			//is then used for something else, and we can use that to capture *most* of the
+			//disconnect cases.
+			if (connControlData[i].conn->state==ESPCONN_NONE || connControlData[i].conn->state>=ESPCONN_CLOSE) {
+				connControlData[i].conn=NULL;
+				control_httpdRetireConn(&connControlData[i]);
+			}
+		}
+	}
 }
-#endif
 
 static void ICACHE_FLASH_ATTR noolite_control_server_recv(void *arg, char *data, unsigned short len)
 {
-	struct espconn *ptrespconn = (struct espconn *)arg;
+	#ifdef NOOLITE_LOGGING
+	ets_uart_printf("noolite_control_server_recv\r\n");
+	#endif
+
+	char sendBuff[MAX_SENDBUFF_LEN];
+	HttpdConnData *conn = control_httpdFindConnData(arg);
+
+	if (conn==NULL)
+		return;
+	conn->priv->sendBuff = sendBuff;
+	conn->priv->sendBuffLen = 0;
 
 	if(os_strncmp(data, "GET ", 4) == 0)
 	{
+		#ifdef NOOLITE_LOGGING
+		ets_uart_printf("noolite_control_server_recv: get\r\n");
+		#endif
 		char page[16];
 		os_memset(page, 0, sizeof(page));
 		noolite_control_server_get_key_val("page", sizeof(page), data, page);
 		// Show deviceID page
 		if(os_strncmp(page, "devid", 5) == 0 && strlen(page) == 5) {
-			noolite_control_server_deviceid_page(ptrespconn, page, data);
+			noolite_control_server_deviceid_page(conn, page, data);
 		} else { // Other pages
-			noolite_control_server_process_page(ptrespconn, page, data);
+			noolite_control_server_process_page(conn, page, data);
 		}
-		return;
 	}
 	else
 	{
-		espconn_sent(ptrespconn, (uint8 *)http404Header, os_strlen(http404Header));
+		const char *notfound="404 Not Found (or method not implemented).";
+		control_httpdStartResponse(conn, 404);
+		control_httpdHeader(conn, "Content-Type", "text/plain");
+		control_httpdEndHeaders(conn);
+		control_httpdSend(conn, notfound, -1);
 		killConn = 1;
-		return;
 	}
+	control_xmitSendBuff(conn);
+	return;
 }
 
-static void ICACHE_FLASH_ATTR noolite_control_server_deviceid_page(struct espconn *ptrespconn, char *page, char *request)
+static void ICACHE_FLASH_ATTR noolite_control_server_deviceid_page(struct HttpdConnData *conn, char *page, char *request)
 {
 	tSetup nooliteSetup;
+	char buff[1024];
+	char html_buff[1024];
+	int len;
+	char *result;
 	load_flash_param(ESP_PARAM_SAVE_1, (uint32 *)&nooliteSetup, sizeof(tSetup));
-
-	char *stream = (char *)pageDevID;
-	char templateKey[16];
-	os_memset(templateKey, 0, sizeof(templateKey));
-	unsigned char templateKeyIdx;
-	while(*stream)
-	{
-		if(*stream == '{')
-		{
-			templateKeyIdx = 0;
-			stream++;
-			while(*stream != '}')
-			{
-				templateKey[templateKeyIdx++] = *stream;
-				stream++;
-			}
-
-			if(os_strncmp(templateKey, "deviceid", 6) == 0)
-			{
-				char deviceid[3];
-				char i;
-				for(i=0; i<16; i++)
-				{
-					os_sprintf(deviceid, "%02x", nooliteSetup.deviceId[i]);
-					espconn_sent(ptrespconn, (uint8 *)deviceid, os_strlen(deviceid));
-				}
-			}
-		}
-		else
-		{
-			espconn_sent(ptrespconn, (uint8 *)stream, 1);
-		}
-
-		stream++;
-	}
+	bin2strhex((char *)nooliteSetup.deviceId, sizeof(nooliteSetup.deviceId), &result);
+	os_sprintf(html_buff, "%s", str_replace(pageDevID, "{deviceid}", result));
+	os_free(result);
+	len = os_sprintf(buff, html_buff);
+	control_httpdSend(conn, buff, len);
 	killConn = 1;
 }
 
-static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct espconn *ptrespconn, char *page, char *request)
+static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdConnData *conn, char *page, char *request)
 {
-	espconn_sent(ptrespconn, (uint8 *)http200Header, os_strlen(http200Header));
-	espconn_sent(ptrespconn, (uint8 *)"\r\n", 2);
-	espconn_sent(ptrespconn, (uint8 *)pageStart, os_strlen(pageStart));
+	#ifdef NOOLITE_LOGGING
+	ets_uart_printf("noolite_control_server_process_page: start\r\n");
+	#endif
+
+	control_httpdStartResponse(conn, 200);
+	control_httpdHeader(conn, "Content-Type", "text/html");
+	control_httpdEndHeaders(conn);
+	// page header
+	char buff[1024];
+	char html_buff[1024];
+	int len;
+	len = os_sprintf(buff, pageStart);
+	if(!control_httpdSend(conn, buff, len)) {
+		#ifdef NOOLITE_LOGGING
+		ets_uart_printf("Error httpdSend: pageStart out-of-memory\r\n");
+		#endif
+	}
 
 	char set[2] = {'0', '\0'};
 	noolite_control_server_get_key_val("set", sizeof(set), request, set);
@@ -159,6 +186,12 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct espconn
 	os_memset(channel_num, 0, sizeof(channel_num));
 	os_memset(status, 0, sizeof(status));
 	os_memset(action, 0, sizeof(action));
+
+	#ifdef NOOLITE_LOGGING
+	char temp[100];
+	os_sprintf(temp, "noolite_control_server_process_page: page=%s\n", page);
+	ets_uart_printf(temp);
+	#endif
 
 	// nooLite bind page
 	if(os_strncmp(page, "bind", 4) == 0 && strlen(page) == 4)
@@ -197,45 +230,22 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct espconn
 			}
 		}
 
-		char *stream = (char *)pageSetBindChannel;
-		char templateKey[16];
-		os_memset(templateKey, 0, sizeof(templateKey));
-		unsigned char templateKeyIdx;
-		while(*stream)
-		{
-			if(*stream == '{')
-			{
-				templateKeyIdx = 0;
-				stream++;
-				while(*stream != '}')
-				{
-					templateKey[templateKeyIdx++] = *stream;
-					stream++;
-				}
-				if(os_strncmp(templateKey, "channel", 7) == 0)
-				{
-					if(strlen(channel_num) == 0)
-						os_sprintf(channel_num, "0");
-					espconn_sent(ptrespconn, (uint8 *)channel_num, os_strlen(channel_num));
-				}
-				else if(os_strncmp(templateKey, "status", 6) == 0)
-				{
-					if(strlen(status) == 0) {
-						os_sprintf(status, "[status]");
-					}
-					espconn_sent(ptrespconn, (uint8 *)status, os_strlen(status));
-				}
-			}
-			else
-			{
-				espconn_sent(ptrespconn, (uint8 *)stream, 1);
-			}
+		if(strlen(channel_num) == 0)
+			os_sprintf(channel_num, "0");
+		os_sprintf(html_buff, "%s", str_replace(pageSetBindChannel, "{channel}", channel_num));
+		if(strlen(status) == 0)
+			os_sprintf(status, "[status]");
+		os_sprintf(html_buff, "%s", str_replace(html_buff, "{status}", status));
 
-			stream++;
-		}
 		if(set[0] == '1')
 		{
-			espconn_sent(ptrespconn, (uint8 *)pageCommandSent, os_strlen(pageCommandSent));
+			char buff_saved[512];
+			os_sprintf(buff_saved, "%s%s", html_buff, pageCommandSent);
+			len = os_sprintf(buff, buff_saved);
+			control_httpdSend(conn, buff, len);
+		} else {
+			len = os_sprintf(buff, html_buff);
+			control_httpdSend(conn, buff, len);
 		}
 	}
 	// nooLite control page
@@ -275,88 +285,53 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct espconn
 			}
 		}
 
-		char *stream = (char *)pageSetNooliteControl;
-		char templateKey[16];
-		os_memset(templateKey, 0, sizeof(templateKey));
-		unsigned char templateKeyIdx;
-		while(*stream)
-		{
-			if(*stream == '{')
-			{
-				templateKeyIdx = 0;
-				stream++;
-				while(*stream != '}')
-				{
-					templateKey[templateKeyIdx++] = *stream;
-					stream++;
-				}
-				if(os_strncmp(templateKey, "channel", 7) == 0)
-				{
-					if(strlen(channel_num) == 0 )
-						os_sprintf(channel_num, "0");
-					espconn_sent(ptrespconn, (uint8 *)channel_num, os_strlen(channel_num));
-				}
-				else if(os_strncmp(templateKey, "status", 6) == 0)
-				{
-					if(strlen(status) == 0) {
-						os_sprintf(status, "[status]");
-					}
-					espconn_sent(ptrespconn, (uint8 *)status, os_strlen(status));
-				}
-			}
-			else
-			{
-				espconn_sent(ptrespconn, (uint8 *)stream, 1);
-			}
 
-			stream++;
-		}
+		if(strlen(channel_num) == 0)
+			os_sprintf(channel_num, "0");
+		os_sprintf(html_buff, "%s", str_replace(pageSetNooliteControl, "{channel}", channel_num));
+		if(strlen(status) == 0)
+			os_sprintf(status, "[status]");
+		os_sprintf(html_buff, "%s", str_replace(html_buff, "{status}", status));
+
 		if(set[0] == '1')
 		{
-			espconn_sent(ptrespconn, (uint8 *)pageCommandSent, os_strlen(pageCommandSent));
+			char buff_saved[512];
+			os_sprintf(buff_saved, "%s%s", html_buff, pageCommandSent);
+			len = os_sprintf(buff, buff_saved);
+			control_httpdSend(conn, buff, len);
+		} else {
+			len = os_sprintf(buff, html_buff);
+			control_httpdSend(conn, buff, len);
 		}
 	}
 	else
 	{
+		#ifdef NOOLITE_LOGGING
+		os_printf("noolite_control_server_process_page: pageIndex\r\n");
+		#endif
 		tSetup nooliteSetup;
+		char *result;
 		load_flash_param(ESP_PARAM_SAVE_1, (uint32 *)&nooliteSetup, sizeof(tSetup));
-
-		char *stream = (char *)pageIndex;
-		char templateKey[16];
-		os_memset(templateKey, 0, sizeof(templateKey));
-		unsigned char templateKeyIdx;
-		while(*stream)
-		{
-			if(*stream == '{')
-			{
-				templateKeyIdx = 0;
-				stream++;
-				while(*stream != '}')
-				{
-					templateKey[templateKeyIdx++] = *stream;
-					stream++;
-				}
-				if(os_strncmp(templateKey, "deviceid", 6) == 0)
-				{
-					char deviceid[3];
-					char i;
-					for(i=0; i<16; i++)
-					{
-						os_sprintf(deviceid, "%02x", nooliteSetup.deviceId[i]);
-						espconn_sent(ptrespconn, (uint8 *)deviceid, os_strlen(deviceid));
-					}
-				}
-			}
-			else
-			{
-				espconn_sent(ptrespconn, (uint8 *)stream, 1);
-			}
-
-			stream++;
+		bin2strhex((char *)nooliteSetup.deviceId, sizeof(nooliteSetup.deviceId), &result);
+		os_sprintf(html_buff, "%s", str_replace(pageIndex, "{deviceid}", result));
+		os_free(result);
+		len = os_sprintf(buff, html_buff);
+		if(!control_httpdSend(conn, buff, len)){
+			#ifdef NOOLITE_LOGGING
+				os_printf("Error httpdSend: pageIndex out-of-memory\r\n");
+			#endif
 		}
 	}
-	espconn_sent(ptrespconn, (uint8 *)pageEnd, os_strlen(pageEnd));
+	len = os_sprintf(buff, pageEnd);
+	if(!control_httpdSend(conn, buff, len)){
+		#ifdef NOOLITE_LOGGING
+			os_printf("Error httpdSend: pageEnd out-of-memory\r\n");
+		#endif
+	}
 	killConn = 1;
+	#ifdef NOOLITE_LOGGING
+	ets_uart_printf("noolite_control_server_process_page: end\r\n");
+	#endif
 }
 
 static unsigned char ICACHE_FLASH_ATTR noolite_control_server_get_key_val(char *key, unsigned char maxlen, char *str, char *retval)
@@ -411,47 +386,68 @@ static unsigned char ICACHE_FLASH_ATTR noolite_control_server_get_key_val(char *
 
 static void ICACHE_FLASH_ATTR noolite_control_server_sent(void *arg)
 {
-    struct espconn *pesp_conn = (struct espconn *)arg;
+	HttpdConnData *conn = control_httpdFindConnData(arg);
 
-	if (pesp_conn == NULL)
-	{
-		return;
-	}
+	if (conn==NULL) return;
 
 	if(killConn)
 	{
-		espconn_disconnect(pesp_conn);
+		espconn_disconnect(conn->conn);
 	}
 }
 
 static void ICACHE_FLASH_ATTR noolite_control_server_connect(void *arg)
 {
-    struct espconn *pesp_conn = (struct espconn *)arg;
-
 	#ifdef NOOLITE_LOGGING
-		ets_uart_printf("noolite_control_server_connect\r\n");
+	ets_uart_printf("noolite_control_server_connect\r\n");
 	#endif
 
-    espconn_regist_recvcb(pesp_conn, noolite_control_server_recv);
-    espconn_regist_sentcb(pesp_conn, noolite_control_server_sent);
+	struct espconn *conn=arg;
+	int i;
+	//Find empty conndata in pool
+	for (i=0; i<MAX_CONN; i++)
+		if (connControlData[i].conn==NULL) break;
 	#ifdef NOOLITE_LOGGING
-    espconn_regist_reconcb(pesp_conn, noolite_control_server_recon);
-    espconn_regist_disconcb(pesp_conn, noolite_control_server_discon);
+	char temp[100];
+	os_sprintf(temp, "Con req, conn=%p, pool slot %d\n", conn, i);
+	ets_uart_printf(temp);
 	#endif
+	connControlData[i].priv = &connPrivData[i];
+	if (i==MAX_CONN) {
+		#ifdef NOOLITE_LOGGING
+		ets_uart_printf("Conn pool overflow!\r\n");
+		#endif
+		espconn_disconnect(conn);
+		return;
+	}
+	connControlData[i].conn = conn;
+	connControlData[i].postLen = 0;
+
+    espconn_regist_recvcb(conn, noolite_control_server_recv);
+    espconn_regist_sentcb(conn, noolite_control_server_sent);
+	#ifdef NOOLITE_LOGGING
+    espconn_regist_reconcb(conn, noolite_control_server_recon);
+	#endif
+    espconn_regist_disconcb(conn, noolite_control_server_discon);
 }
 
 void ICACHE_FLASH_ATTR noolite_control_server_init()
 {
+	int i;
+
 	#ifdef NOOLITE_LOGGING
 		ets_uart_printf("noolite_control_server_init()\r\n");
 	#endif
-    esptcp.local_port = 80;
 
+	for (i=0; i<MAX_CONN; i++) {
+		connControlData[i].conn=NULL;
+	}
+
+	esptcp.local_port = 80;
     esp_conn.type = ESPCONN_TCP;
     esp_conn.state = ESPCONN_NONE;
     esp_conn.proto.tcp = &esptcp;
     espconn_regist_connectcb(&esp_conn, noolite_control_server_connect);
-
     espconn_accept(&esp_conn);
 
     os_event_t *recvTaskQueue = (os_event_t *)os_malloc(sizeof(os_event_t) * recvTaskQueueLen);
@@ -470,4 +466,66 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 		default:
 			break;
 	}
+}
+
+//Looks up the connData info for a specific esp connection
+static ICACHE_FLASH_ATTR HttpdConnData ICACHE_FLASH_ATTR *control_httpdFindConnData(void *arg) {
+	int i;
+	for (i=0; i<MAX_CONN; i++) {
+		if (connControlData[i].conn==(struct espconn *)arg)
+			return &connControlData[i];
+	}
+	#ifdef CTRL_LOGGING
+		os_printf("FindConnData: Couldn't find connection for %p\n", arg);
+	#endif
+	return NULL; //WtF?
+}
+
+//Add data to the send buffer. len is the length of the data. If len is -1
+//the data is seen as a C-string.
+//Returns 1 for success, 0 for out-of-memory.
+int ICACHE_FLASH_ATTR control_httpdSend(HttpdConnData *conn, const char *data, int len) {
+	if (len<0)
+		len = strlen(data);
+	if (conn->priv->sendBuffLen+len > MAX_SENDBUFF_LEN)
+		return 0;
+	os_memcpy(conn->priv->sendBuff+conn->priv->sendBuffLen, data, len);
+	conn->priv->sendBuffLen += len;
+	return 1;
+}
+
+//Helper function to send any data in conn->priv->sendBuff
+static ICACHE_FLASH_ATTR void ICACHE_FLASH_ATTR control_xmitSendBuff(HttpdConnData *conn) {
+	if (conn->priv->sendBuffLen != 0) {
+		#ifdef CTRL_LOGGING
+			os_printf("xmitSendBuff\r\n");
+		#endif
+		espconn_sent(conn->conn, (uint8_t*)conn->priv->sendBuff, conn->priv->sendBuffLen);
+		conn->priv->sendBuffLen = 0;
+	}
+}
+
+//Start the response headers.
+void ICACHE_FLASH_ATTR control_httpdStartResponse(HttpdConnData *conn, int code) {
+	char buff[128];
+	int l;
+	l = os_sprintf(buff, "HTTP/1.0 %d OK\r\nServer: nooLite-Control-Server/0.1\r\n", code);
+	control_httpdSend(conn, buff, l);
+}
+
+//Send a http header.
+void ICACHE_FLASH_ATTR control_httpdHeader(HttpdConnData *conn, const char *field, const char *val) {
+	char buff[256];
+	int l;
+	l = os_sprintf(buff, "%s: %s\r\n", field, val);
+	control_httpdSend(conn, buff, l);
+}
+
+//Finish the headers.
+void ICACHE_FLASH_ATTR control_httpdEndHeaders(HttpdConnData *conn) {
+	control_httpdSend(conn, "\r\n", -1);
+}
+
+static void ICACHE_FLASH_ATTR control_httpdRetireConn(HttpdConnData *conn) {
+	conn->conn=NULL;
 }

@@ -11,6 +11,7 @@
 #include "noolite_platform.h"
 #include "noolite_config_server.h"
 #include "noolite_control_server.h"
+#include "wifi.h"
 
 //os_timer_t ConfigChecker;
 //static int resetCnt = 0;
@@ -200,55 +201,10 @@ void ICACHE_FLASH_ATTR noolite_platform_init(void)
 
 	if(nooLiteSetup.SetupOk != SETUP_OK_KEY || wifi_get_opmode() != STATION_MODE)
 	{
-		//wipe_flash_param(ESP_PARAM_SAVE_1);
-
-		if(wifi_get_opmode() != STATIONAP_MODE)
-		{
-			wifi_set_opmode(STATIONAP_MODE);
-			#ifdef NOOLITE_LOGGING
-			ets_uart_printf("Restarting in STATIONAP mode...\r\n");
-			#endif
-			system_restart();
-		}
-
-		char macaddr[6];
-		wifi_get_macaddr(SOFTAP_IF, macaddr);
-
-		struct ip_info ipinfo;
-		IP4_ADDR(&ipinfo.ip, 10, 10, 10, 1);
-		IP4_ADDR(&ipinfo.gw, 10, 10, 10, 1);
-		IP4_ADDR(&ipinfo.netmask, 255, 255, 255, 0);
-		wifi_set_ip_info(SOFTAP_IF, &ipinfo);
-
-		struct softap_config apConfig;
-		os_memset(apConfig.ssid, 0, sizeof(apConfig.ssid));
-		os_sprintf(apConfig.ssid, "NOOLITE_%02x%02x%02x%02x%02x%02x", MAC2STR(macaddr));
-		os_memset(apConfig.password, 0, sizeof(apConfig.password));
-		os_sprintf(apConfig.password, "%02x%02x%02x%02x%02x%02x", MAC2STR(macaddr));
-		apConfig.authmode = AUTH_WPA_WPA2_PSK;
-		apConfig.channel = 7;
-		apConfig.max_connection = 255;
-		apConfig.ssid_hidden = 0;
-
-		wifi_softap_set_config(&apConfig);
-
-		#ifdef NOOLITE_LOGGING
-		char temp[80];
-		os_sprintf(temp, "OPMODE: %u\r\n", wifi_get_opmode());
-		ets_uart_printf(temp);
-		os_sprintf(temp, "SSID: %s\r\n", apConfig.ssid);
-		ets_uart_printf(temp);
-		os_sprintf(temp, "PASSWORD: %s\r\n", apConfig.password);
-		ets_uart_printf(temp);
-		os_sprintf(temp, "CHANNEL: %u\r\n", apConfig.channel);
-		ets_uart_printf(temp);
-		os_sprintf(temp, "CONFIGURATION WEB SERVER IP: " IPSTR "\r\n", IP2STR(&ipinfo.ip));
-		ets_uart_printf(temp);
-		ets_uart_printf("Starting nooLite configuration web server...\r\n");
-		#endif
-
+		// Init WiFi in STATIONAP mode
+		setup_wifi_ap_mode();
+		// Start config server
 		noolite_config_server_init();
-		//noolite_control_server_init();
 	}
 	else
 	{
@@ -259,26 +215,22 @@ void ICACHE_FLASH_ATTR noolite_platform_init(void)
 		if(wifi_get_opmode() != STATION_MODE)
 		{
 			#ifdef NOOLITE_LOGGING
-			ets_uart_printf("Restarting in STATION mode...\r\n");
+			os_printf("Start in STATION mode...\r\n");
 			#endif
 			wifi_set_opmode(STATION_MODE);
-			system_restart();
 		}
+		wifi_station_set_auto_connect(1);
+		if(wifi_get_phy_mode() != PHY_MODE_11N)
+			wifi_set_phy_mode(PHY_MODE_11N);
+		if(wifi_station_get_auto_connect() == 0)
+			wifi_station_set_auto_connect(1);
 
 		#ifdef NOOLITE_LOGGING
-		char temp[80];
-		uint8 bssid[6];
-		struct station_config stationConf;
-		wifi_station_get_config(&stationConf);
-		os_sprintf(temp, "OPMODE: %u\r\n", wifi_get_opmode());
-		ets_uart_printf(temp);
-		os_sprintf(temp, "AP SSID: %s\r\n", stationConf.ssid);
-		ets_uart_printf(temp);
-		os_sprintf(temp, "AP PASSWORD: %s\r\n", stationConf.password);
-		ets_uart_printf(temp);
-		wifi_get_macaddr(STATION_IF, bssid);
-		os_sprintf(temp, "STA MACADDR: " MACSTR "\r\n", MAC2STR(bssid));
-		ets_uart_printf(temp);
+			struct station_config stationConf;
+			wifi_station_get_config(&stationConf);
+			char temp[80];
+			os_sprintf(temp, "OPMODE: %u, SSID: %s, PWD: %s\r\n", wifi_get_opmode(), stationConf.ssid, stationConf.password);
+			ets_uart_printf(temp);
 		#endif
 
 		#ifdef NOOLITE_LOGGING

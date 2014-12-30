@@ -3,7 +3,13 @@
 
 #include "c_types.h"
 
-//#define NOOLITE_LOGGING
+#define NOOLITE_LOGGING
+
+// Max amount of connections
+#define MAX_CONN 8
+
+//Max send buffer len
+#define MAX_SENDBUFF_LEN 2048
 
 // Button to enter configuration mode of ESP8266
 #define BTN_CONFIG_GPIO 0
