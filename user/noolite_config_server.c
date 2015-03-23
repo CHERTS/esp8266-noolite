@@ -344,7 +344,6 @@ static void ICACHE_FLASH_ATTR noolite_config_server_connect(void *arg)
 	os_sprintf(temp, "Con req, conn=%p, pool slot %d\n", conn, i);
 	ets_uart_printf(temp);
 	#endif
-	connData[i].priv = &connPrivData[i];
 	if (i==MAX_CONN) {
 		#ifdef NOOLITE_LOGGING
 		ets_uart_printf("Conn pool overflow!\r\n");
@@ -354,6 +353,7 @@ static void ICACHE_FLASH_ATTR noolite_config_server_connect(void *arg)
 	}
 	connData[i].conn = conn;
 	connData[i].postLen = 0;
+	connData[i].priv = &connPrivData[i];
 
 	espconn_regist_recvcb(conn, noolite_config_server_recv);
 	espconn_regist_sentcb(conn, noolite_config_server_sent);
