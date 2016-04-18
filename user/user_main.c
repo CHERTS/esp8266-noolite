@@ -5,6 +5,10 @@
 
 extern int ets_uart_printf(const char *fmt, ...);
 
+void user_rf_pre_init(void)
+{
+}
+
 void user_init(void)
 {
 	uart_init(BIT_RATE_9600, BIT_RATE_9600);
