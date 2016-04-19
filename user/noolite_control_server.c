@@ -192,7 +192,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_deviceid_page(struct HttpdC
 
 static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdConnData *conn, char *page, char *request)
 {
-	char buff[1024];
+	char buff[2048];
 	char html_buff[2048];
 	char version_buff[10];
 	int len;
