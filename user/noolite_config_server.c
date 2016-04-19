@@ -55,7 +55,7 @@ static void ICACHE_FLASH_ATTR noolite_config_server_recon(void *arg, sint8 err)
 static void ICACHE_FLASH_ATTR noolite_config_server_discon(void *arg)
 {
 	#ifdef NOOLITE_LOGGING
-    ets_uart_printf("noolite_config_server_discon\r\n");
+	ets_uart_printf("noolite_config_server_discon\r\n");
 	#endif
 	//Just look at all the sockets and kill the slot if needed.
 	int i;

@@ -36,21 +36,21 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
     {
         connState = WIFI_CONNECTED;
         #ifdef NOOLITE_LOGGING
-        	char temp[80];
-        	ets_uart_printf("WiFi connected\r\n");
-        	os_sprintf(temp, "Client IP address: " IPSTR "\r\n", IP2STR(&ipconfig.ip));
-			ets_uart_printf(temp);
-			os_sprintf(temp, "Client IP netmask: " IPSTR "\r\n", IP2STR(&ipconfig.netmask));
-			ets_uart_printf(temp);
-			os_sprintf(temp, "Client IP gateway: " IPSTR "\r\n", IP2STR(&ipconfig.gw));
-			ets_uart_printf(temp);
+       	char temp[80];
+       	ets_uart_printf("WiFi connected\r\n");
+       	os_sprintf(temp, "Client IP address: " IPSTR "\r\n", IP2STR(&ipconfig.ip));
+	ets_uart_printf(temp);
+	os_sprintf(temp, "Client IP netmask: " IPSTR "\r\n", IP2STR(&ipconfig.netmask));
+	ets_uart_printf(temp);
+	os_sprintf(temp, "Client IP gateway: " IPSTR "\r\n", IP2STR(&ipconfig.gw));
+	ets_uart_printf(temp);
         #endif
         wifiErrorConnect = 0;
         if(controlServerStatus == 0) {
         	controlServerStatus++;
-			#ifdef NOOLITE_LOGGING
+		#ifdef NOOLITE_LOGGING
         	ets_uart_printf("Init noolite control server...\r\n");
-			#endif
+		#endif
         	noolite_control_server_init();
         }
         //os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
@@ -186,7 +186,7 @@ void ICACHE_FLASH_ATTR debounce_timer_cb(void *arg)
 	gpio_pin_intr_state_set(GPIO_ID_PIN(BTN_CONFIG_GPIO), GPIO_PIN_INTR_NEGEDGE);
 	ETS_GPIO_INTR_ENABLE();
 	#ifdef NOOLITE_LOGGING
-		ets_uart_printf("Button CONFMODE pressed, wiping configuration and restart in configuration mode...\r\n");
+	ets_uart_printf("Button CONFMODE pressed, wiping configuration and restart in configuration mode...\r\n");
 	#endif
 	noolite_platform_enter_configuration_mode();
 }
@@ -209,7 +209,7 @@ void ICACHE_FLASH_ATTR noolite_platform_init(void)
 	else
 	{
 		#ifdef NOOLITE_LOGGING
-			ets_uart_printf("Starting in normal mode...\r\n");
+		ets_uart_printf("Starting in normal mode...\r\n");
 		#endif
 
 		if(wifi_get_opmode() != STATION_MODE)
@@ -226,11 +226,11 @@ void ICACHE_FLASH_ATTR noolite_platform_init(void)
 			wifi_station_set_auto_connect(1);
 
 		#ifdef NOOLITE_LOGGING
-			struct station_config stationConf;
-			wifi_station_get_config(&stationConf);
-			char temp[80];
-			os_sprintf(temp, "OPMODE: %u, SSID: %s, PWD: %s\r\n", wifi_get_opmode(), stationConf.ssid, stationConf.password);
-			ets_uart_printf(temp);
+		struct station_config stationConf;
+		wifi_station_get_config(&stationConf);
+		char temp[80];
+		os_sprintf(temp, "OPMODE: %u, SSID: %s, PWD: %s\r\n", wifi_get_opmode(), stationConf.ssid, stationConf.password);
+		ets_uart_printf(temp);
 		#endif
 
 		#ifdef NOOLITE_LOGGING
