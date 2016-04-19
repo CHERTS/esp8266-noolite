@@ -9,7 +9,7 @@
 #define sleepms(x) os_delay_us(x*1000);
 
 // private
-static int noolite_sendCommand(unsigned char channel, unsigned char command, unsigned char data, unsigned char format);
+static int noolite_sendCommand(unsigned char channel, unsigned char command, unsigned char format, unsigned char data0, unsigned char data1, unsigned char data2, unsigned char data3);
 static void noolite_control_server_deviceid_page(struct HttpdConnData *, char *, char *);
 static void noolite_control_server_process_page(struct HttpdConnData *, char *, char *);
 static unsigned char noolite_control_server_get_key_val(char *, unsigned char, char *, char *);

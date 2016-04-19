@@ -27,7 +27,7 @@ static unsigned char killConn;
 static unsigned char returnToNormalMode;
 // html page header and footer
 static const char *pageStart = "<html><head><title>nooLite base config</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"save\" value=\"1\">\r\n";
-static const char *pageEnd = "</form><hr>(c) 2014 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
 // html pages
 static const char *pageIndex = "<h2>Welcome to nooLite base config</h2><ul><li><a href=\"?page=wifi\">WiFi settings</a></li><li><a href=\"?page=noolite\">nooLite settings</a></li><li><a href=\"?page=return\">Return to normal mode</a></li></ul>\r\n";
 static const char *pageSetWifi = "<h2><a href=\"/\">Home</a> / WiFi settings</h2><input type=\"hidden\" name=\"page\" value=\"wifi\"><table border=\"0\"><tr><td><b>AP SSID:</b></td><td><input type=\"text\" name=\"ssid\" value=\"{ssid}\" size=\"40\"></td></tr><tr><td><b>AP Password:</b></td><td><input type=\"password\" name=\"pass\" value=\"***\" size=\"40\"></td></tr><tr><td><b>Status:</b></td><td>{status} <a href=\"?page=wifi\">[refresh]</a></td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td></tr></table>\r\n";
@@ -109,13 +109,16 @@ static void ICACHE_FLASH_ATTR noolite_config_server_recv(void *arg, char *data, 
 
 static void ICACHE_FLASH_ATTR noolite_config_server_process_page(struct HttpdConnData *conn, char *page, char *request)
 {
+	char buff[1024];
+	char html_buff[1024];
+	char version_buff[10];
+	int len;
+
 	config_httpdStartResponse(conn, 200);
 	config_httpdHeader(conn, "Content-Type", "text/html");
 	config_httpdEndHeaders(conn);
+
 	// page header
-	char buff[1024];
-	char html_buff[1024];
-	int len;
 	len = os_sprintf(buff, pageStart);
 	if(!config_httpdSend(conn, buff, len)) {
 		#ifdef NOOLITE_LOGGING
@@ -251,7 +254,9 @@ static void ICACHE_FLASH_ATTR noolite_config_server_process_page(struct HttpdCon
 		}
 	}
 	// page footer
-	len = os_sprintf(buff, pageEnd);
+	//len = os_sprintf(buff, pageEnd);
+	os_sprintf(version_buff, "%s", ESPOOLITE_VERSION);
+	len = os_sprintf(buff, "%s", str_replace(pageEnd, "{version}", version_buff));
 	if(!config_httpdSend(conn, buff, len)){
 		#ifdef NOOLITE_LOGGING
 			os_printf("Error httpdSend: pageEnd out-of-memory\r\n");

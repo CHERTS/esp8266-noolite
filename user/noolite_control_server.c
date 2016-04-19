@@ -25,7 +25,7 @@ static esp_tcp esptcp;
 static unsigned char killConn;
 // html page header and footer
 static const char *pageStart = "<html><head><title>nooLite Control Panel</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"set\" value=\"1\">\r\n";
-static const char *pageEnd = "</form><hr>(c) 2014 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
 // html pages
 static const char *pageIndex = "<h2>Welcome to nooLite Control Panel</h2>nooLite Control deviceID: {deviceid}<ul><li><a href=\"?page=devid\">Get deviceID</a></li><li><a href=\"?page=bind\">nooLite bind-unbind channel</a></li><li><a href=\"?page=control\">nooLite control</a></li></ul>\r\n";
 static const char *pageSetBindChannel = "<h2><a href=\"/\">Home</a> / nooLite bind-unbind channel</h2><input type=\"hidden\" name=\"page\" value=\"bind\"><table border=\"0\"><tr><td><b>Channel #:</b></td><td><input type=\"text\" name=\"channel\" value=\"{channel}\" size=\"2\" maxlength=\"2\">&nbsp;0 .. 32</td></tr></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name = \"action\" value=\"Bind\"><input type=\"submit\" name = \"action\" value=\"Unbind\"></td></tr></table>\r\n";
@@ -36,7 +36,35 @@ int recvOK = 0;
 
 static void recvTask(os_event_t *events);
 
-static int ICACHE_FLASH_ATTR noolite_sendCommand(unsigned char channel, unsigned char command, unsigned char data, unsigned char format)
+// noolite_sendCommand(channel, command, format, data0, data1, data2, data3)
+// Full docs: http://www.noo.com.by/assets/files/PDF/MT1132.pdf
+// channel = 0 .. 32
+// command = 19 - change speed in working mode (переключить скорость эффекта в режиме работы)
+// command = 18 - change working mode (переключить режим работы)
+// command = 17 - change color (переключить цвет)
+// command = 16 - on color random (включить плавный перебор цвета, выключается командой 10)
+// command = 15 - bind (сообщить исполнительному устройству, что управляющее устройство хочет записать свой адрес в его память (привязка))
+// command = 10 - stop (остановить регулировку)
+// command = 9  - unbind (запустить процедуру стирания адреса управляющего устройства из памяти исполнительного устройства (отвязка))
+// command = 8  - record scene (записать сценарий)
+// command = 7  - run scene (вызвать записанный сценарий)
+// command = 6  - установить заданную в "Байт данных 0" (data0) яркость, установить заданную в "Байт данных 0, 1, 2" (data0,1,2) яркость*
+// command = 5  - slow on/off (запустить плавное изменение яркости в обратном направлении)
+// command = 4  - on/off (включить или выключить нагрузку)
+// command = 3  - slow on (запустить плавное повышение яркости)
+// command = 2  - on (включить нагрузку)
+// command = 1  - slow off (запустить плавное понижение яркости)
+// command = 0  - off (выключить нагрузку)
+// format	- Формат. При передаче команды со значением 6 - значение Формат=1 (яркость – "Байт данных 0" (data0)) или
+//		  Формат=3 (яркость на каждый канал независимо - "Байт данных 0,1,2 (data0,1,2)).
+//		  При передаче остальных команд без данных – значение Формат=0
+// data0	- Байт данных 0. При передаче команды со значением=6 и Формат=1 в данном байте содержится информация о яркости, которая будет
+//		  установлена (значение в диапазоне 35…155). При значении 0 – свет выключится, при значении больше 155 – свет включится на максимальную яркость.
+//		  * При передаче команды со значением=6 и Формат=3 в данном байте содержится информация о яркости, которая будет установлена (значение в диапазоне 0…255) на канал R.
+// data1	- Байт данных 1. *При передаче команды со значением=6 и Формат=3 в данном байте содержится информация о яркости, которая будет установлена (значение в диапазоне 0…255) на канал G.
+// data2	- Байт данных 2. *При передаче команды со значением=6 и Формат=3 в данном байте содержится информация о яркости, которая будет установлена (значение в диапазоне 0…255) на канал B.
+// data3	- Байт данных 3. Значение=0
+static int ICACHE_FLASH_ATTR noolite_sendCommand(unsigned char channel, unsigned char command, unsigned char format, unsigned char data0, unsigned char data1, unsigned char data2, unsigned char data3)
 {
 	unsigned char buf[12];
 	unsigned int i;
@@ -50,7 +78,10 @@ static int ICACHE_FLASH_ATTR noolite_sendCommand(unsigned char channel, unsigned
 	buf[2] = command;
 	buf[3] = format;
 	buf[5] = channel;
-	buf[6] = data;
+	buf[6] = data0;
+	buf[7] = data1;
+	buf[8] = data2;
+	buf[9] = data3;
 
 	for(i = 0; i < 10; i++) {
 		checkSum+= buf[i];
@@ -160,6 +191,11 @@ static void ICACHE_FLASH_ATTR noolite_control_server_deviceid_page(struct HttpdC
 
 static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdConnData *conn, char *page, char *request)
 {
+	char buff[1024];
+	char html_buff[1024];
+	char version_buff[10];
+	int len;
+
 	#ifdef NOOLITE_LOGGING
 	ets_uart_printf("noolite_control_server_process_page: start\r\n");
 	#endif
@@ -167,10 +203,8 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	control_httpdStartResponse(conn, 200);
 	control_httpdHeader(conn, "Content-Type", "text/html");
 	control_httpdEndHeaders(conn);
+
 	// page header
-	char buff[1024];
-	char html_buff[1024];
-	int len;
 	len = os_sprintf(buff, pageStart);
 	if(!control_httpdSend(conn, buff, len)) {
 		#ifdef NOOLITE_LOGGING
@@ -200,22 +234,16 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			// noolite_sendCommand(channel, command, data, format)
-			// channel = 0 .. 32
-			// command = 15 - bind
-			// command = 9 - unbind
-			// command = 2 - on
-			// command = 0 - off
 			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 32) {
 				if(os_strncmp(action, "Bind", 4) == 0 && strlen(action) == 4) {
-					if(noolite_sendCommand(atoi(channel_num), 15, 0, 0)) {
+					if(noolite_sendCommand(atoi(channel_num), 15, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "Bind OK");
 					}
 					else {
 						os_sprintf(status, "Bind ERR");
 					}
 				} else if(os_strncmp(action, "Unbind", 6) == 0 && strlen(action) == 6) {
-					if(noolite_sendCommand(atoi(channel_num), 9, 0, 0)) {
+					if(noolite_sendCommand(atoi(channel_num), 9, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "Unbind OK");
 					}
 					else {
@@ -255,22 +283,16 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			// noolite_sendCommand(channel, command, data, format)
-			// channel = 0 .. 32
-			// command = 15 - bind
-			// command = 9 - unbind
-			// command = 2 - on
-			// command = 0 - off
 			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 32) {
 				if(os_strncmp(action, "On", 2) == 0 && strlen(action) == 2) {
-					if(noolite_sendCommand(atoi(channel_num), 2, 0, 0)) {
+					if(noolite_sendCommand(atoi(channel_num), 2, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "On");
 					}
 					else {
 						os_sprintf(status, "On ERR");
 					}
 				} else if(os_strncmp(action, "Off", 3) == 0 && strlen(action) == 3) {
-					if (noolite_sendCommand(atoi(channel_num), 0, 0, 0)) {
+					if (noolite_sendCommand(atoi(channel_num), 0, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "Off");
 					}
 					else {
@@ -322,7 +344,11 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 			#endif
 		}
 	}
-	len = os_sprintf(buff, pageEnd);
+
+	// page footer
+	//len = os_sprintf(buff, pageEnd);
+	os_sprintf(version_buff, "%s", ESPOOLITE_VERSION);
+	len = os_sprintf(buff, "%s", str_replace(pageEnd, "{version}", version_buff));
 	if(!control_httpdSend(conn, buff, len)){
 		#ifdef NOOLITE_LOGGING
 			os_printf("Error httpdSend: pageEnd out-of-memory\r\n");
