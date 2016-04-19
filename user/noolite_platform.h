@@ -3,7 +3,7 @@
 
 #include "c_types.h"
 
-#define NOOLITE_LOGGING
+//#define NOOLITE_LOGGING
 
 // Firmware version
 #define ESPOOLITE_VERSION 1.1
