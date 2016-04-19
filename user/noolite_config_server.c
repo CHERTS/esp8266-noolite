@@ -30,7 +30,7 @@ static const char *pageStart = "<html><head><title>ESPOOLITE base config</title>
 static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
 // html pages
 static const char *pageIndex = "<h2>Welcome to ESPOOLITE base config</h2><ul><li><a href=\"?page=wifi\">WiFi settings</a></li><li><a href=\"?page=noolite\">ESPOOLITE settings</a></li><li><a href=\"?page=return\">Return to normal mode</a></li></ul>\r\n";
-static const char *pageSetWifi = "<h2><a href=\"/\">Home</a> / WiFi settings</h2><input type=\"hidden\" name=\"page\" value=\"wifi\"><table border=\"0\"><tr><td><b>AP SSID:</b></td><td><input type=\"text\" name=\"ssid\" value=\"{ssid}\" size=\"40\"></td></tr><tr><td><b>AP Password:</b></td><td><input type=\"password\" name=\"pass\" value=\"***\" size=\"40\"></td></tr><tr><td><b>Status:</b></td><td>{status} <a href=\"?page=wifi\">[refresh]</a></td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td></tr></table>\r\n";
+static const char *pageSetWifi = "<h2><a href=\"/\">Home</a> / WiFi settings</h2><input type=\"hidden\" name=\"page\" value=\"wifi\"><table border=\"0\"><tr><td><b>AP SSID:</b></td><td><input type=\"text\" name=\"ssid\" value=\"{ssid}\" size=\"32\"></td></tr><tr><td><b>AP Password:</b></td><td><input type=\"password\" name=\"pass\" value=\"{pass}\" size=\"32\"></td></tr><tr><td><b>Status:</b></td><td>{status} <a href=\"?page=wifi\">[refresh]</a></td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td></tr></table>\r\n";
 static const char *pageSetNoolite = "<h2><a href=\"/\">Home</a> / ESPOOLITE settings</h2><input type=\"hidden\" name=\"page\" value=\"noolite\"><table border=\"0\"><tr><td><b>Device ID:</b></td><td><input type=\"text\" name=\"deviceid\" value=\"{deviceid}\" size=\"40\" maxlength=\"32\">&nbsp;32 characters</td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td><td></td></tr></table>\r\n";
 static const char *pageResetStarted = "<h1>Returning to normal mode...</h1>You can close this window now.\r\n";
 static const char *pageSavedInfo = "<br><b style=\"color: green\">Settings saved!</b>\r\n";
@@ -109,10 +109,20 @@ static void ICACHE_FLASH_ATTR noolite_config_server_recv(void *arg, char *data, 
 
 static void ICACHE_FLASH_ATTR noolite_config_server_process_page(struct HttpdConnData *conn, char *page, char *request)
 {
+	char ssid[32];
+	char pass[64];
 	char buff[1024];
 	char html_buff[1024];
 	char version_buff[10];
 	int len;
+	static struct ip_info ipConfig;
+	char save[2] = {'0', '\0'};
+	char status[32] = "[status]";
+	struct station_config stationConf;
+
+	os_memset(status, 0, sizeof(status));
+	os_memset(ssid, 0, sizeof(ssid));
+	os_memset(pass, 0, sizeof(pass));
 
 	config_httpdStartResponse(conn, 200);
 	config_httpdHeader(conn, "Content-Type", "text/html");
@@ -126,58 +136,89 @@ static void ICACHE_FLASH_ATTR noolite_config_server_process_page(struct HttpdCon
 		#endif
 	}
 
-	char save[2] = {'0', '\0'};
-	char status[32] = "[status]";
 	noolite_config_server_get_key_val("save", sizeof(save), request, save);
-	os_memset(status, 0, sizeof(status));
 
 	// wifi settings page
 	if(os_strncmp(page, "wifi", 4) == 0 && strlen(page) == 4)
 	{
-		struct station_config stationConf;
-		wifi_station_get_config(&stationConf);
+		if(wifi_station_get_config(&stationConf)) {
+			#ifdef NOOLITE_LOGGING
+			char temp[100];
+			os_sprintf(temp, "STA config: SSID: %s, PASSWORD: %s\r\n", stationConf.ssid, stationConf.password);
+			ets_uart_printf(temp);
+			#endif
+		}
 
 		if(save[0] == '1')
 		{
 			os_memset(stationConf.ssid, 0, sizeof(stationConf.ssid));
-			noolite_config_server_get_key_val("ssid", sizeof(stationConf.ssid), request, stationConf.ssid); //32
-			char pass[64];
-			os_memset(pass, 0, sizeof(pass));
+			os_memset(stationConf.password, 0, sizeof(stationConf.password));
+			noolite_config_server_get_key_val("ssid", sizeof(ssid), request, ssid); //32
+			if(strlen(ssid) != 0)
+				os_sprintf(stationConf.ssid, "%s", ssid);
+			else
+				os_sprintf(stationConf.ssid, "%s", "Test");
 			noolite_config_server_get_key_val("pass", sizeof(pass), request, pass); //64
-			if(os_strncmp(pass, "***", 3) != 0)
-			{
-				os_memset(stationConf.password, 0, sizeof(stationConf.password));
-				noolite_config_server_get_key_val("pass", sizeof(stationConf.password), request, stationConf.password); //64
-			}
+			if(strlen(pass) != 0)
+				os_sprintf(stationConf.password, "%s", pass);
+			else
+				os_sprintf(stationConf.password, "%s", "test");
 			// Init WiFi in STA mode
 			setup_wifi_st_mode(stationConf);
-			wifi_station_get_config(&stationConf);
+			if(wifi_station_get_config(&stationConf)) {
+				#ifdef NOOLITE_LOGGING
+				char temp[100];
+				os_sprintf(temp, "New STA config: SSID: %s, PASSWORD: %s\r\n", stationConf.ssid, stationConf.password);
+				ets_uart_printf(temp);
+				#endif
+			}
 		}
 
-		os_sprintf(html_buff, "%s", str_replace(pageSetWifi, "{ssid}", stationConf.ssid));
-		os_sprintf(html_buff, "%s", str_replace(html_buff, "{pass}", stationConf.password));
-		char status[32];
-		int x = wifi_station_get_connect_status();
-		if (x == STATION_GOT_IP)
-		{
-			os_sprintf(status, "Connected");
+		if(strlen(stationConf.ssid) == 0) {
+			os_sprintf(ssid, "Test");
+			#ifdef NOOLITE_LOGGING
+			ets_uart_printf("ssid = Test\r\n");
+			#endif
+		} else {
+			os_sprintf(ssid, "%s", stationConf.ssid);
 		}
-		else if(x == STATION_WRONG_PASSWORD)
-		{
-			os_sprintf(status, "Wrong Password");
+		if(strlen(stationConf.password) == 0) {
+			os_sprintf(pass, "test");
+			#ifdef NOOLITE_LOGGING
+				ets_uart_printf("pass = test\r\n");
+			#endif
+		} else {
+			os_sprintf(pass, "%s", stationConf.password);
 		}
-		else if(x == STATION_NO_AP_FOUND)
+		os_sprintf(html_buff, "%s", str_replace(pageSetWifi, "{ssid}", ssid));
+		os_sprintf(html_buff, "%s", str_replace(html_buff, "{pass}", pass));
+
+		if(wifi_get_opmode() == STATION_MODE || wifi_get_opmode() == STATIONAP_MODE)
 		{
-			os_sprintf(status, "AP Not Found");
+			switch(wifi_station_get_connect_status())
+			{
+				case STATION_GOT_IP:
+					wifi_get_ip_info(STATION_IF, &ipConfig);
+					if(ipConfig.ip.addr != 0) {
+						os_sprintf(status, "Connected");
+					} else {
+						os_sprintf(status, "Connected, ipaddr is null");
+					}
+					break;
+				case STATION_WRONG_PASSWORD:
+					os_sprintf(status, "Wrong Password");
+					break;
+				case STATION_NO_AP_FOUND:
+					os_sprintf(status, "AP Not Found");
+					break;
+				case STATION_CONNECT_FAIL:
+					os_sprintf(status, "Connect Failed");
+					break;
+				default:
+					os_sprintf(status, "Not Connected");
+			}
 		}
-		else if(x == STATION_CONNECT_FAIL)
-		{
-			os_sprintf(status, "Connect Failed");
-		}
-		else
-		{
-			os_sprintf(status, "Not Connected");
-		}
+
 		os_sprintf(html_buff, "%s", str_replace(html_buff, "{status}", status));
 
 		if(save[0] == '1')

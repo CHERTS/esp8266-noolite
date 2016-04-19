@@ -71,7 +71,7 @@ void setup_wifi_ap_mode(void)
 
 void setup_wifi_st_mode(struct station_config stationConf)
 {
-	//wifi_set_opmode((wifi_get_opmode()|STATION_MODE)&STATIONAP_MODE);
+	wifi_set_opmode((wifi_get_opmode()|STATION_MODE)&STATIONAP_MODE);
 	wifi_station_disconnect();
 	wifi_station_dhcpc_stop();
 	if(!wifi_station_set_config(&stationConf))

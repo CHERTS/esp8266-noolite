@@ -15,7 +15,7 @@ FW_BASE		= firmware
 XTENSA_TOOLS_ROOT ?= c:/Espressif/xtensa-lx106-elf/bin
 
 # base directory of the ESP8266 SDK package, absolute
-SDK_BASE	?= c:/Espressif/ESP8266_SDK_101
+SDK_BASE	?= c:/Espressif/ESP8266_SDK
 SDK_TOOLS	?= c:/Espressif/utils/ESP8266
 
 # esptool path and port
@@ -122,7 +122,7 @@ MODULES	= driver user
 EXTRA_INCDIR = include $(SDK_BASE)/../extra/include
 
 # libraries used in this project, mainly provided by the SDK
-LIBS = c gcc hal phy pp net80211 lwip wpa main
+LIBS = c gcc hal phy pp net80211 lwip wpa main crypto
 
 # compiler flags using during compilation of source files
 CFLAGS = -Os -g -O2 -std=gnu90 -Wpointer-arith -Wundef -Werror -Wl,-EL -fno-inline-functions -nostdlib -mlongcalls -mtext-section-literals -mno-serialize-volatile -D__ets__ -DICACHE_FLASH

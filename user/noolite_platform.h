@@ -6,7 +6,7 @@
 //#define NOOLITE_LOGGING
 
 // Firmware version
-#define ESPOOLITE_VERSION 1.1
+#define ESPOOLITE_VERSION "1.1"
 
 // Max amount of connections
 #define MAX_CONN 8
