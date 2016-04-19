@@ -352,42 +352,42 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
 			if(os_strncmp(action, "Send", 4) == 0 && strlen(action) == 4) {
 				if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Channel number incorrect");
 				}
 				if((atoi(command) >= 0 && atoi(command) <= 10) || (atoi(command) >= 15 && atoi(command) <= 19)) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Command number incorrect");
 				}
 				if(atoi(format) >= 0 && atoi(format) <= 3) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Format number incorrect");
 				}
 				if(atoi(data0) >= 0 && atoi(data0) <= 255) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Data0 incorrect");
 				}
 				if(atoi(data1) >= 0 && atoi(data1) <= 255) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Data1 incorrect");
 				}
 				if(atoi(data2) >= 0 && atoi(data2) <= 255) {
-					value_parse_status = 1;
-				} else {
 					value_parse_status = 0;
+				} else {
+					value_parse_status++;
 					os_sprintf(status, "Err: Data2 incorrect");
 				}
-				if(value_parse_status == 1) {
+				if(value_parse_status == 0) {
 					if(noolite_sendCommand(atoi(channel_num), atoi(command), atoi(format), atoi(data0), atoi(data1), atoi(data2), 0)) {
 						os_sprintf(status, "Sent");
 					} else {
