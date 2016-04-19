@@ -38,7 +38,7 @@ static void recvTask(os_event_t *events);
 
 // noolite_sendCommand(channel, command, format, data0, data1, data2, data3)
 // Full docs: http://www.noo.com.by/assets/files/PDF/MT1132.pdf
-// channel = 0 .. 32
+// channel = 0 .. 31
 // command = 19 - change speed in working mode (переключить скорость эффекта в режиме работы)
 // command = 18 - change working mode (переключить режим работы)
 // command = 17 - change color (переключить цвет)
@@ -234,7 +234,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 32) {
+			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
 				if(os_strncmp(action, "Bind", 4) == 0 && strlen(action) == 4) {
 					if(noolite_sendCommand(atoi(channel_num), 15, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "Bind OK");
@@ -283,7 +283,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 32) {
+			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
 				if(os_strncmp(action, "On", 2) == 0 && strlen(action) == 2) {
 					if(noolite_sendCommand(atoi(channel_num), 2, 0, 0, 0, 0, 0)) {
 						os_sprintf(status, "On");
