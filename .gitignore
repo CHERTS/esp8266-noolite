@@ -1,4 +1,5 @@
 #Directories
 build
+firmware
 *.cmd
 *.vsd
