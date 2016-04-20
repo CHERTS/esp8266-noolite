@@ -101,26 +101,20 @@ static int ICACHE_FLASH_ATTR noolite_sendCommand(unsigned char channel, unsigned
 	sleepms(300);
 
 	recvOK = 1;
-	#ifdef NOOLITE_LOGGING
 	if(recvOK)
-		ets_uart_printf("nooLite MT1132 send OK\r\n");
-	#endif
+		ESPOOLITE_LOGGING("nooLite MT1132 send OK\r\n");
 
 	return recvOK;
 }
 
-#ifdef NOOLITE_LOGGING
 static void ICACHE_FLASH_ATTR noolite_control_server_recon(void *arg, sint8 err)
 {
-    ets_uart_printf("noolite_control_server_recon\r\n");
+    ESPOOLITE_LOGGING("noolite_control_server_recon\r\n");
 }
-#endif
 
 static void ICACHE_FLASH_ATTR noolite_control_server_discon(void *arg)
 {
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("noolite_control_server_discon\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_discon\r\n");
 	//Just look at all the sockets and kill the slot if needed.
 	int i;
 	for (i=0; i<MAX_CONN; i++) {
@@ -139,9 +133,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_discon(void *arg)
 
 static void ICACHE_FLASH_ATTR noolite_control_server_recv(void *arg, char *data, unsigned short len)
 {
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("noolite_control_server_recv\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_recv\r\n");
 
 	char sendBuff[MAX_SENDBUFF_LEN];
 	HttpdConnData *conn = control_httpdFindConnData(arg);
@@ -151,11 +143,8 @@ static void ICACHE_FLASH_ATTR noolite_control_server_recv(void *arg, char *data,
 	conn->priv->sendBuff = sendBuff;
 	conn->priv->sendBuffLen = 0;
 
-	if(os_strncmp(data, "GET ", 4) == 0)
-	{
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("noolite_control_server_recv: get\r\n");
-		#endif
+	if(os_strncmp(data, "GET ", 4) == 0) {
+		ESPOOLITE_LOGGING("noolite_control_server_recv: get\r\n");
 		char page[16];
 		os_memset(page, 0, sizeof(page));
 		noolite_control_server_get_key_val("page", sizeof(page), data, page);
@@ -165,9 +154,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_recv(void *arg, char *data,
 		} else { // Other pages
 			noolite_control_server_process_page(conn, page, data);
 		}
-	}
-	else
-	{
+	} else {
 		const char *notfound="404 Not Found (or method not implemented).";
 		control_httpdStartResponse(conn, 404);
 		control_httpdHeader(conn, "Content-Type", "text/plain");
@@ -203,9 +190,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	int len,n;
 	int value_parse_status = 0;
 
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("noolite_control_server_process_page: start\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_process_page: start\r\n");
 
 	control_httpdStartResponse(conn, 200);
 	control_httpdHeader(conn, "Content-Type", "text/html");
@@ -214,9 +199,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	// page header
 	len = os_sprintf(buff, pageStart);
 	if(!control_httpdSend(conn, buff, len)) {
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("Error httpdSend: pageStart out-of-memory\r\n");
-		#endif
+		ESPOOLITE_LOGGING("Error httpdSend: pageStart out-of-memory\r\n");
 	}
 
 	char set[2] = {'0', '\0'};
@@ -238,11 +221,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	os_memset(data1, 0, sizeof(data1));
 	os_memset(data2, 0, sizeof(data2));
 
-	#ifdef NOOLITE_LOGGING
-	char temp[100];
-	os_sprintf(temp, "noolite_control_server_process_page: page=%s\n", page);
-	ets_uart_printf(temp);
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_process_page: page=%s\n", page);
 
 	// nooLite bind page
 	if(os_strncmp(page, "bind", 4) == 0 && strlen(page) == 4)
@@ -493,12 +472,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 			} else {
 				os_sprintf(status, "Err: Send value not set");
 			}
-			#ifdef NOOLITE_LOGGING
-			char temp[100];
-			os_sprintf(temp, "Status: %d, noolite_sendCommand(%s,%s,%s,%s,%s,%s,0)\r\n",value_parse_status,channel_num,command,format,data0,data1,data2);
-			ets_uart_printf(temp);
-			#endif
-
+			ESPOOLITE_LOGGING("Status: %d, noolite_sendCommand(%s,%s,%s,%s,%s,%s,0)\r\n",value_parse_status,channel_num,command,format,data0,data1,data2);
 		}
 
 		if(strlen(channel_num) == 0 || !isItNum(channel_num, n) || atoi(channel_num) > 31)
@@ -534,12 +508,8 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 			len = os_sprintf(buff, html_buff);
 			control_httpdSend(conn, buff, len);
 		}
-	}
-	else
-	{
-		#ifdef NOOLITE_LOGGING
-		os_printf("noolite_control_server_process_page: pageIndex\r\n");
-		#endif
+	} else {
+		ESPOOLITE_LOGGING("noolite_control_server_process_page: pageIndex\r\n");
 		tSetup nooliteSetup;
 		char *result;
 		load_flash_param(ESP_PARAM_SAVE_1, (uint32 *)&nooliteSetup, sizeof(tSetup));
@@ -547,10 +517,8 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		os_sprintf(html_buff, "%s", str_replace(pageIndex, "{deviceid}", result));
 		os_free(result);
 		len = os_sprintf(buff, html_buff);
-		if(!control_httpdSend(conn, buff, len)){
-			#ifdef NOOLITE_LOGGING
-				os_printf("Error httpdSend: pageIndex out-of-memory\r\n");
-			#endif
+		if(!control_httpdSend(conn, buff, len)) {
+			ESPOOLITE_LOGGING("Error httpdSend: pageIndex out-of-memory\r\n");
 		}
 	}
 
@@ -558,15 +526,11 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	//len = os_sprintf(buff, pageEnd);
 	os_sprintf(version_buff, "%s", ESPOOLITE_VERSION);
 	len = os_sprintf(buff, "%s", str_replace(pageEnd, "{version}", version_buff));
-	if(!control_httpdSend(conn, buff, len)){
-		#ifdef NOOLITE_LOGGING
-			os_printf("Error httpdSend: pageEnd out-of-memory\r\n");
-		#endif
+	if(!control_httpdSend(conn, buff, len)) {
+		ESPOOLITE_LOGGING("Error httpdSend: pageEnd out-of-memory\r\n");
 	}
 	killConn = 1;
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("noolite_control_server_process_page: end\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_process_page: end\r\n");
 }
 
 static unsigned char ICACHE_FLASH_ATTR noolite_control_server_get_key_val(char *key, unsigned char maxlen, char *str, char *retval)
@@ -633,24 +597,18 @@ static void ICACHE_FLASH_ATTR noolite_control_server_sent(void *arg)
 
 static void ICACHE_FLASH_ATTR noolite_control_server_connect(void *arg)
 {
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("noolite_control_server_connect\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_connect\r\n");
 
 	struct espconn *conn=arg;
 	int i;
 	//Find empty conndata in pool
 	for (i=0; i<MAX_CONN; i++)
 		if (connControlData[i].conn==NULL) break;
-	#ifdef NOOLITE_LOGGING
-	char temp[100];
-	os_sprintf(temp, "Con req, conn=%p, pool slot %d\n", conn, i);
-	ets_uart_printf(temp);
-	#endif
+
+	ESPOOLITE_LOGGING("Con req, conn=%p, pool slot %d\n", conn, i);
+
 	if (i==MAX_CONN) {
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("Conn pool overflow!\r\n");
-		#endif
+		ESPOOLITE_LOGGING("Conn pool overflow!\r\n");
 		espconn_disconnect(conn);
 		return;
 	}
@@ -660,9 +618,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_connect(void *arg)
 
 	espconn_regist_recvcb(conn, noolite_control_server_recv);
 	espconn_regist_sentcb(conn, noolite_control_server_sent);
-	#ifdef NOOLITE_LOGGING
 	espconn_regist_reconcb(conn, noolite_control_server_recon);
-	#endif
 	espconn_regist_disconcb(conn, noolite_control_server_discon);
 }
 
@@ -670,9 +626,7 @@ void ICACHE_FLASH_ATTR noolite_control_server_init()
 {
 	int i;
 
-	#ifdef NOOLITE_LOGGING
-		ets_uart_printf("noolite_control_server_init()\r\n");
-	#endif
+	ESPOOLITE_LOGGING("noolite_control_server_init()\r\n");
 
 	for (i=0; i<MAX_CONN; i++) {
 		connControlData[i].conn=NULL;
@@ -693,9 +647,7 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 {
 	switch (events->sig) {
 		case 0:
-			#ifdef NOOLITE_LOGGING
-				ets_uart_printf("nooLite MT1132 sent OK\r\n");
-			#endif
+			ESPOOLITE_LOGGING("nooLite MT1132 sent OK\r\n");
 			recvOK = 1;
 			break;
 		default:
@@ -710,9 +662,7 @@ static ICACHE_FLASH_ATTR HttpdConnData ICACHE_FLASH_ATTR *control_httpdFindConnD
 		if (connControlData[i].conn==(struct espconn *)arg)
 			return &connControlData[i];
 	}
-	#ifdef CTRL_LOGGING
-		os_printf("FindConnData: Couldn't find connection for %p\n", arg);
-	#endif
+	ESPOOLITE_LOGGING("FindConnData: Couldn't find connection for %p\n", arg);
 	return NULL; //WtF?
 }
 
@@ -732,9 +682,7 @@ int ICACHE_FLASH_ATTR control_httpdSend(HttpdConnData *conn, const char *data, i
 //Helper function to send any data in conn->priv->sendBuff
 static ICACHE_FLASH_ATTR void ICACHE_FLASH_ATTR control_xmitSendBuff(HttpdConnData *conn) {
 	if (conn->priv->sendBuffLen != 0) {
-		#ifdef CTRL_LOGGING
-			os_printf("xmitSendBuff\r\n");
-		#endif
+		ESPOOLITE_LOGGING("xmitSendBuff\r\n");
 		espconn_sent(conn->conn, (uint8_t*)conn->priv->sendBuff, conn->priv->sendBuffLen);
 		conn->priv->sendBuffLen = 0;
 	}
@@ -744,7 +692,7 @@ static ICACHE_FLASH_ATTR void ICACHE_FLASH_ATTR control_xmitSendBuff(HttpdConnDa
 void ICACHE_FLASH_ATTR control_httpdStartResponse(HttpdConnData *conn, int code) {
 	char buff[128];
 	int l;
-	l = os_sprintf(buff, "HTTP/1.0 %d OK\r\nServer: nooLite-Control-Server/0.1\r\n", code);
+	l = os_sprintf(buff, "HTTP/1.0 %d OK\r\nServer: ESPOOLITE-Control-Server/0.1\r\n", code);
 	control_httpdSend(conn, buff, l);
 }
 

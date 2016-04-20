@@ -28,29 +28,18 @@ void setup_wifi_ap_mode(void)
 		apconfig.ssid_hidden = 0;
 		apconfig.channel = 7;
 		apconfig.max_connection = 10;
-		if(!wifi_softap_set_config(&apconfig))
-		{
-			#ifdef NOOLITE_LOGGING
-			ets_uart_printf("NOOLITE not set AP config!\r\n");
-			#endif
+		if(!wifi_softap_set_config(&apconfig)) {
+			ESPOOLITE_LOGGING("NOOLITE not set AP config!\r\n");
 		}
 		struct ip_info ipinfo;
-		if(wifi_get_ip_info(SOFTAP_IF, &ipinfo))
-		{
+		if(wifi_get_ip_info(SOFTAP_IF, &ipinfo)) {
 			IP4_ADDR(&ipinfo.ip, 192, 168, 4, 1);
 			IP4_ADDR(&ipinfo.gw, 192, 168, 4, 1);
 			IP4_ADDR(&ipinfo.netmask, 255, 255, 255, 0);
-			if(!wifi_set_ip_info(SOFTAP_IF, &ipinfo))
-			{
-				#ifdef NOOLITE_LOGGING
-				ets_uart_printf("NOOLITE not set IP config!\r\n");
-				#endif
+			if(!wifi_set_ip_info(SOFTAP_IF, &ipinfo)) {
+				ESPOOLITE_LOGGING("NOOLITE not set IP config!\r\n");
 			} else {
-				#ifdef NOOLITE_LOGGING
-				char temp[80];
-				os_sprintf(temp, "CONFIGURATION WEB SERVER IP: " IPSTR "\r\n", IP2STR(&ipinfo.ip));
-				ets_uart_printf(temp);
-				#endif
+				ESPOOLITE_LOGGING("CONFIGURATION WEB SERVER IP: " IPSTR "\r\n", IP2STR(&ipinfo.ip));
 			}
 		}
 		wifi_softap_dhcps_start();
@@ -59,14 +48,10 @@ void setup_wifi_ap_mode(void)
 		wifi_set_phy_mode(PHY_MODE_11N);
 	if(wifi_station_get_auto_connect() == 0)
 		wifi_station_set_auto_connect(1);
-	#ifdef NOOLITE_LOGGING
-	char temp[100];
-	ets_uart_printf("NOOLITE in AP mode configured.\r\n");
+	ESPOOLITE_LOGGING("NOOLITE in AP mode configured.\r\n");
 	if(wifi_softap_get_config(&apconfig)) {
-		os_sprintf(temp, "AP config: SSID: %s, PASSWORD: %s, CHANNEL: %u\r\n", apconfig.ssid,	apconfig.password, apconfig.channel);
-		ets_uart_printf(temp);
+		ESPOOLITE_LOGGING("AP config: SSID: %s, PASSWORD: %s, CHANNEL: %u\r\n", apconfig.ssid,	apconfig.password, apconfig.channel);
 	}
-	#endif
 }
 
 void setup_wifi_st_mode(struct station_config stationConf)
@@ -74,11 +59,8 @@ void setup_wifi_st_mode(struct station_config stationConf)
 	wifi_set_opmode((wifi_get_opmode()|STATION_MODE)&STATIONAP_MODE);
 	wifi_station_disconnect();
 	wifi_station_dhcpc_stop();
-	if(!wifi_station_set_config(&stationConf))
-	{
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("NOOLITE not set station config!\r\n");
-		#endif
+	if(!wifi_station_set_config(&stationConf)) {
+		ESPOOLITE_LOGGING("NOOLITE not set station config!\r\n");
 	}
 	wifi_station_connect();
 	wifi_station_dhcpc_start();
@@ -87,7 +69,5 @@ void setup_wifi_st_mode(struct station_config stationConf)
 		wifi_set_phy_mode(PHY_MODE_11N);
 	if(wifi_station_get_auto_connect() == 0)
 		wifi_station_set_auto_connect(1);
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("NOOLITE in STA mode configured.\r\n");
-	#endif
+	ESPOOLITE_LOGGING("NOOLITE in STA mode configured.\r\n");
 }

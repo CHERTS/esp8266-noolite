@@ -4,7 +4,7 @@
 #include "c_types.h"
 
 // Enable debug logging in COM port
-//#define NOOLITE_LOGGING
+//#define ESPOOLITE_LOGGING
 
 // Disable author copyright
 //#define NO_COPYRIGHT
@@ -37,5 +37,13 @@ static void noolite_platform_check_ip(void *);
 
 // public
 void noolite_platform_init(void);
+
+// Debug output
+#ifdef ESPOOLITE_LOGGING
+#undef ESPOOLITE_LOGGING
+#define ESPOOLITE_LOGGING(...) console_printf(__VA_ARGS__);
+#else
+#define ESPOOLITE_LOGGING(...)
+#endif
 
 #endif

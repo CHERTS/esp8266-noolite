@@ -10,7 +10,7 @@
 
 void ICACHE_FLASH_ATTR load_flash_param(uint32 sectorOffset, uint32 *param, uint32 size)
 {
-    spi_flash_read((ESP_PARAM_START_SEC + sectorOffset) * SPI_FLASH_SEC_SIZE, (uint32 *)param, size);
+	spi_flash_read((ESP_PARAM_START_SEC + sectorOffset) * SPI_FLASH_SEC_SIZE, (uint32 *)param, size);
 }
 
 void ICACHE_FLASH_ATTR save_flash_param(uint32 sectorOffset, uint32 *param, uint32 size)

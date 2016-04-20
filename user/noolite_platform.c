@@ -31,72 +31,44 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
 
     wifi_get_ip_info(STATION_IF, &ipconfig);
 
-    if (wifi_station_get_connect_status() == STATION_GOT_IP && ipconfig.ip.addr != 0)
-    {
-        #ifdef NOOLITE_LOGGING
-       	char temp[80];
-       	ets_uart_printf("WiFi connected\r\n");
-       	os_sprintf(temp, "Client IP address: " IPSTR "\r\n", IP2STR(&ipconfig.ip));
-	ets_uart_printf(temp);
-	os_sprintf(temp, "Client IP netmask: " IPSTR "\r\n", IP2STR(&ipconfig.netmask));
-	ets_uart_printf(temp);
-	os_sprintf(temp, "Client IP gateway: " IPSTR "\r\n", IP2STR(&ipconfig.gw));
-	ets_uart_printf(temp);
-        #endif
+    if (wifi_station_get_connect_status() == STATION_GOT_IP && ipconfig.ip.addr != 0) {
+       	ESPOOLITE_LOGGING("WiFi connected\r\n");
+       	ESPOOLITE_LOGGING("Client IP address: " IPSTR "\r\n", IP2STR(&ipconfig.ip));
+	ESPOOLITE_LOGGING("Client IP netmask: " IPSTR "\r\n", IP2STR(&ipconfig.netmask));
+	ESPOOLITE_LOGGING("Client IP gateway: " IPSTR "\r\n", IP2STR(&ipconfig.gw));
         wifiErrorConnect = 0;
         if(controlServerStatus == 0) {
         	controlServerStatus++;
-		#ifdef NOOLITE_LOGGING
-        	ets_uart_printf("Init noolite control server...\r\n");
-		#endif
+        	ESPOOLITE_LOGGING("Init noolite control server...\r\n");
         	noolite_control_server_init();
         }
         //os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
         //os_timer_arm(&WiFiLinker, 10000, 0);
-    }
-    else
-    {
-		if(wifi_station_get_connect_status() == STATION_WRONG_PASSWORD)
-		{
-			#ifdef PLATFORM_DEBUG
-			ets_uart_printf("WiFi connecting error, wrong password\r\n");
-			#endif
+    } else {
+		if(wifi_station_get_connect_status() == STATION_WRONG_PASSWORD) {
+			ESPOOLITE_LOGGING("WiFi connecting error, wrong password\r\n");
 			wifiErrorConnect++;
 			os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
 			os_timer_arm(&WiFiLinker, 1500, 0);
-		}
-		else if(wifi_station_get_connect_status() == STATION_NO_AP_FOUND)
-		{
-			#ifdef PLATFORM_DEBUG
-			ets_uart_printf("WiFi connecting error, ap not found\r\n");
-			#endif
+		} else if(wifi_station_get_connect_status() == STATION_NO_AP_FOUND) {
+			ESPOOLITE_LOGGING("WiFi connecting error, ap not found\r\n");
 			wifiErrorConnect++;
 			os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
 			os_timer_arm(&WiFiLinker, 1000, 0);
-		}
-		else if(wifi_station_get_connect_status() == STATION_CONNECT_FAIL)
-		{
-			#ifdef PLATFORM_DEBUG
-			ets_uart_printf("WiFi connecting fail\r\n");
-			#endif
+		} else if(wifi_station_get_connect_status() == STATION_CONNECT_FAIL) {
+			ESPOOLITE_LOGGING("WiFi connecting fail\r\n");
 			wifiErrorConnect++;
 			os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
 			os_timer_arm(&WiFiLinker, 1000, 0);
-		}
-		else
-		{
+		} else {
 			os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
 			os_timer_arm(&WiFiLinker, 1000, 0);
 			wifiErrorConnect++;
-			#ifdef PLATFORM_DEBUG
-			ets_uart_printf("WiFi connecting...\r\n");
-			#endif
+			ESPOOLITE_LOGGING("WiFi connecting...\r\n");
 		}
 		/*if (wifiErrorConnect > 10)
 		{
-			#ifdef PLATFORM_DEBUG
-			ets_uart_printf("WiFi connecting failed, system restart...\r\n");
-			#endif
+			ESPOOLITE_LOGGING("WiFi connecting failed, system restart...\r\n");
 			system_restart();
 		}*/
 		controlServerStatus = 0;
@@ -107,9 +79,7 @@ static void ICACHE_FLASH_ATTR noolite_platform_enter_configuration_mode(void)
 {
 	wipe_flash_param(ESP_PARAM_SAVE_1);
 	wifi_set_opmode(STATIONAP_MODE);
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("Restarting in STATIONAP mode...\r\n");
-	#endif
+	ESPOOLITE_LOGGING("Restarting in STATIONAP mode...\r\n");
 	system_restart();
 }
 
@@ -179,38 +149,29 @@ void ICACHE_FLASH_ATTR debounce_timer_cb(void *arg)
 	ETS_GPIO_INTR_DISABLE();
 	gpio_pin_intr_state_set(GPIO_ID_PIN(BTN_CONFIG_GPIO), GPIO_PIN_INTR_NEGEDGE);
 	ETS_GPIO_INTR_ENABLE();
-	#ifdef NOOLITE_LOGGING
-	ets_uart_printf("Button CONFMODE pressed, wiping configuration and restart in configuration mode...\r\n");
-	#endif
+	ESPOOLITE_LOGGING("Button CONFMODE pressed, wiping configuration and restart in configuration mode...\r\n");
 	noolite_platform_enter_configuration_mode();
 }
 
 void ICACHE_FLASH_ATTR noolite_platform_init(void)
 {
 	tSetup nooLiteSetup;
+	struct station_config stationConf;
 
 	load_flash_param(ESP_PARAM_SAVE_1, (uint32 *)&nooLiteSetup, sizeof(tSetup));
 
 	BtnInit();
 
-	if(nooLiteSetup.SetupOk != SETUP_OK_KEY || wifi_get_opmode() != STATION_MODE)
-	{
+	if(nooLiteSetup.SetupOk != SETUP_OK_KEY || wifi_get_opmode() != STATION_MODE) {
 		// Init WiFi in STATIONAP mode
 		setup_wifi_ap_mode();
 		// Start config server
 		noolite_config_server_init();
-	}
-	else
-	{
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("Starting in normal mode...\r\n");
-		#endif
+	} else {
+		ESPOOLITE_LOGGING("Starting in normal mode...\r\n");
 
-		if(wifi_get_opmode() != STATION_MODE)
-		{
-			#ifdef NOOLITE_LOGGING
-			os_printf("Start in STATION mode...\r\n");
-			#endif
+		if(wifi_get_opmode() != STATION_MODE) {
+			ESPOOLITE_LOGGING("Start in STATION mode...\r\n");
 			wifi_set_opmode(STATION_MODE);
 		}
 		wifi_station_set_auto_connect(1);
@@ -219,17 +180,9 @@ void ICACHE_FLASH_ATTR noolite_platform_init(void)
 		if(wifi_station_get_auto_connect() == 0)
 			wifi_station_set_auto_connect(1);
 
-		#ifdef NOOLITE_LOGGING
-		struct station_config stationConf;
 		wifi_station_get_config(&stationConf);
-		char temp[80];
-		os_sprintf(temp, "OPMODE: %u, SSID: %s, PWD: %s\r\n", wifi_get_opmode(), stationConf.ssid, stationConf.password);
-		ets_uart_printf(temp);
-		#endif
-
-		#ifdef NOOLITE_LOGGING
-		ets_uart_printf("System initialization done!\r\n");
-		#endif
+		ESPOOLITE_LOGGING("OPMODE: %u, SSID: %s, PWD: %s\r\n", wifi_get_opmode(), stationConf.ssid, stationConf.password);
+		ESPOOLITE_LOGGING("System initialization done!\r\n");
 
 		os_timer_disarm(&WiFiLinker);
 		os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
