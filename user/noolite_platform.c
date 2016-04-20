@@ -17,7 +17,6 @@
 //static int resetCnt = 0;
 os_timer_t WiFiLinker;
 os_timer_t DebounceTimer;
-static tConnState connState = WIFI_CONNECTING;
 uint16_t wifiErrorConnect = 0;
 uint16_t controlServerStatus = 0;
 
@@ -34,7 +33,6 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
 
     if (wifi_station_get_connect_status() == STATION_GOT_IP && ipconfig.ip.addr != 0)
     {
-        connState = WIFI_CONNECTED;
         #ifdef NOOLITE_LOGGING
        	char temp[80];
        	ets_uart_printf("WiFi connected\r\n");
@@ -60,7 +58,6 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
     {
 		if(wifi_station_get_connect_status() == STATION_WRONG_PASSWORD)
 		{
-			connState = WIFI_CONNECTING_ERROR;
 			#ifdef PLATFORM_DEBUG
 			ets_uart_printf("WiFi connecting error, wrong password\r\n");
 			#endif
@@ -70,7 +67,6 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
 		}
 		else if(wifi_station_get_connect_status() == STATION_NO_AP_FOUND)
 		{
-			connState = WIFI_CONNECTING_ERROR;
 			#ifdef PLATFORM_DEBUG
 			ets_uart_printf("WiFi connecting error, ap not found\r\n");
 			#endif
@@ -80,7 +76,6 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
 		}
 		else if(wifi_station_get_connect_status() == STATION_CONNECT_FAIL)
 		{
-			connState = WIFI_CONNECTING_ERROR;
 			#ifdef PLATFORM_DEBUG
 			ets_uart_printf("WiFi connecting fail\r\n");
 			#endif
@@ -92,7 +87,6 @@ static void ICACHE_FLASH_ATTR noolite_platform_check_ip(void *arg)
 		{
 			os_timer_setfn(&WiFiLinker, (os_timer_func_t *)noolite_platform_check_ip, NULL);
 			os_timer_arm(&WiFiLinker, 1000, 0);
-			connState = WIFI_CONNECTING;
 			wifiErrorConnect++;
 			#ifdef PLATFORM_DEBUG
 			ets_uart_printf("WiFi connecting...\r\n");

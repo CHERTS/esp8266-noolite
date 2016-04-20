@@ -26,10 +26,15 @@ static esp_tcp esptcp;
 static unsigned char killConn;
 static unsigned char returnToNormalMode;
 // html page header and footer
-static const char *pageStart = "<html><head><title>ESPOOLITE base config</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"save\" value=\"1\">\r\n";
-static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
+static const char *pageStart = "<html><head><title>ESPOOLITE Base Config</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"save\" value=\"1\">\r\n";
+#ifdef NO_COPYRIGHT
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016</body></html>\r\n";
+#endif
+#ifndef NO_COPYRIGHT
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a></body></html>\r\n";
+#endif
 // html pages
-static const char *pageIndex = "<h2>Welcome to ESPOOLITE base config</h2><ul><li><a href=\"?page=wifi\">WiFi settings</a></li><li><a href=\"?page=noolite\">ESPOOLITE settings</a></li><li><a href=\"?page=return\">Return to normal mode</a></li></ul>\r\n";
+static const char *pageIndex = "<h2>ESPOOLITE Base Config</h2><ul><li><a href=\"?page=wifi\">WiFi settings</a></li><li><a href=\"?page=noolite\">ESPOOLITE settings</a></li><li><a href=\"?page=return\">Return to normal mode</a></li></ul>\r\n";
 static const char *pageSetWifi = "<h2><a href=\"/\">Home</a> / WiFi settings</h2><input type=\"hidden\" name=\"page\" value=\"wifi\"><table border=\"0\"><tr><td><b>AP SSID:</b></td><td><input type=\"text\" name=\"ssid\" value=\"{ssid}\" size=\"32\"></td></tr><tr><td><b>AP Password:</b></td><td><input type=\"password\" name=\"pass\" value=\"{pass}\" size=\"32\"></td></tr><tr><td><b>Status:</b></td><td>{status} <a href=\"?page=wifi\">[refresh]</a></td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td></tr></table>\r\n";
 static const char *pageSetNoolite = "<h2><a href=\"/\">Home</a> / ESPOOLITE settings</h2><input type=\"hidden\" name=\"page\" value=\"noolite\"><table border=\"0\"><tr><td><b>Device ID:</b></td><td><input type=\"text\" name=\"deviceid\" value=\"{deviceid}\" size=\"40\" maxlength=\"32\">&nbsp;32 characters</td></tr><tr><td></td><td><input type=\"submit\" value=\"Save\"></td><td></td></tr></table>\r\n";
 static const char *pageResetStarted = "<h1>Returning to normal mode...</h1>You can close this window now.\r\n";

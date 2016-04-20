@@ -24,13 +24,18 @@ static struct espconn esp_conn;
 static esp_tcp esptcp;
 static unsigned char killConn;
 // html page header and footer
-static const char *pageStart = "<html><head><title>ESPOOLITE Control Panel</title><style>body{font-family: Arial}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"set\" value=\"1\">\r\n";
-static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a>\r\n</body></html>\r\n";
+static const char *pageStart = "<html><head><title>ESPOOLITE Control Panel</title><style>body{font-family: Arial};#dva:{width:5em;}</style></head><body><form method=\"get\" action=\"/\"><input type=\"hidden\" name=\"set\" value=\"1\">\r\n";
+#ifdef NO_COPYRIGHT
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016</body></html>\r\n";
+#endif
+#ifndef NO_COPYRIGHT
+static const char *pageEnd = "</form><hr>ESPOOLITE v{version} (c) 2014-2016 by <a href=\"mailto:sleuthhound@gmail.com\" target=\"_blank\">Mikhail Grigorev</a>, <a href=\"http://programs74.ru\" target=\"_blank\">programs74.ru</a></body></html>\r\n";
+#endif
 // html pages
-static const char *pageIndex = "<h2>Welcome to ESPOOLITE Control Panel</h2>ESPOOLITE Control deviceID: {deviceid}<ul><li><a href=\"?page=devid\">Get deviceID</a></li><li><a href=\"?page=bind\">ESPOOLITE bind-unbind channel</a></li><li><a href=\"?page=control\">ESPOOLITE control</a></li><li><a href=\"?page=customcontrol\">ESPOOLITE custom control</a></li></ul>\r\n";
-static const char *pageSetBindChannel = "<h2><a href=\"/\">Home</a> / ESPOOLITE bind-unbind channel</h2><input type=\"hidden\" name=\"page\" value=\"bind\"><table border=\"0\"><tr><td><b>Channel #:</b></td><td><input type=\"text\" name=\"channel\" value=\"{channel}\" size=\"2\" maxlength=\"2\">&nbsp;0 .. 31</td></tr></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name = \"action\" value=\"Bind\"><input type=\"submit\" name = \"action\" value=\"Unbind\"></td></tr></table>\r\n";
-static const char *pageSetNooliteControl = "<h2><a href=\"/\">Home</a> / ESPOOLITE control</h2><input type=\"hidden\" name=\"page\" value=\"control\"><table border=\"0\"><tr><td><b>Channel #:</b></td><td><input type=\"text\" name=\"channel\" value=\"{channel}\" size=\"2\" maxlength=\"2\">&nbsp;0 .. 31</td></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name = \"action\" value=\"On\"><input type=\"submit\" name = \"action\" value=\"Off\"></td></tr></table>\r\n";
-static const char *pageSetNooliteCustomControl = "<h2><a href=\"/\">Home</a> / ESPOOLITE custom control</h2><input type=\"hidden\" name=\"page\" value=\"customcontrol\"><table border=\"0\"><tr><td><b>Channel:</b></td><td><input type=\"text\" name=\"channel\" value=\"{channel}\" size=\"2\" maxlength=\"2\">&nbsp;0 .. 31</td></tr><tr><td><b>Command:</b></td><td><input type=\"text\" name=\"command\" value=\"{command}\" size=\"2\" maxlength=\"2\">&nbsp;0 .. 10, 15 .. 19</td></tr><tr><td><b>Format:</b></td><td><input type=\"text\" name=\"format\" value=\"{format}\" size=\"1\" maxlength=\"1\">&nbsp;0, 1, 3</td></tr><tr><td><b>Data 0:</b></td><td><input type=\"text\" name=\"data0\" value=\"{data0}\" size=\"3\" maxlength=\"3\">&nbsp;0 .. 255</td></tr><tr><td><b>Data 1:</b></td><td><input type=\"text\" name=\"data1\" value=\"{data1}\" size=\"3\" maxlength=\"3\">&nbsp;0 .. 255</td></tr><tr><td><b>Data 2:</b></td><td><input type=\"text\" name=\"data2\" value=\"{data2}\" size=\"3\" maxlength=\"3\">&nbsp;0 .. 255</td></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name = \"action\" value=\"Send\"></td></tr></table>\r\n";
+static const char *pageIndex = "<h2>ESPOOLITE Control Panel</h2>DeviceID: {deviceid}<ul><li><a href=\"?page=devid\">Get DeviceID</a></li><li><a href=\"?page=bind\">Bind and Unbind device</a></li><li><a href=\"?page=control\">Base control</a></li><li><a href=\"?page=customcontrol\">Custom control</a></li></ul>\r\n";
+static const char *pageSetBindChannel = "<h2><a href=\"/\">Home</a> / Bind and Unbind device</h2><input type=\"hidden\" name=\"page\" value=\"bind\"><table border=\"0\"><tr><td><b>Channel:</b></td><td><input type=\"number\" name=\"channel\" value=\"{channel}\" min=\"0\" max=\"31\" step=\"1\" id=\"dva\" required autofocus>&nbsp;0 .. 31</td></tr></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name=\"action\" value=\"Bind\"><input type=\"submit\" name=\"action\" value=\"Unbind\"></td></tr></table>\r\n";
+static const char *pageSetNooliteControl = "<h2><a href=\"/\">Home</a> / Base control</h2><input type=\"hidden\" name=\"page\" value=\"control\"><table border=\"0\"><tr><td><b>Channel:</b></td><td><input type=\"number\" name=\"channel\" value=\"{channel}\" min=\"0\" max=\"31\" step=\"1\" id=\"dva\" required autofocus>&nbsp;0 .. 31</td></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name=\"action\" value=\"On\"><input type=\"submit\" name=\"action\" value=\"Off\"></td></tr></table>\r\n";
+static const char *pageSetNooliteCustomControl = "<h2><a href=\"/\">Home</a> / Custom control</h2><input type=\"hidden\" name=\"page\" value=\"customcontrol\"><table border=\"0\"><tr><td><b>Channel:</b></td><td><input type=\"number\" name=\"channel\" value=\"{channel}\" min=\"0\" max=\"31\" step=\"1\" id=\"dva\" required autofocus>&nbsp;0 .. 31</td></tr><tr><td><b>Command:</b></td><td><input type=\"number\" name=\"command\" value=\"{command}\" min=\"0\" max=\"19\" step=\"1\" id=\"dva\" required>&nbsp;0 .. 10, 15 .. 19</td></tr><tr><td><b>Format:</b></td><td><input type=\"number\" name=\"format\" value=\"{format}\" min=\"0\" max=\"3\" step=\"1\" id=\"dva\" required>&nbsp;0, 1, 3</td></tr><tr><td><b>Data 0:</b></td><td><input type=\"number\" name=\"data0\" value=\"{data0}\" min=\"0\" max=\"255\" step=\"1\" id=\"dva\" required>&nbsp;43 .. 155</td></tr><tr><td><b>Data 1:</b></td><td><input type=\"number\" name=\"data1\" value=\"{data1}\" min=\"0\" max=\"255\" step=\"1\" id=\"dva\" required>&nbsp;43 .. 155</td></tr><tr><td><b>Data 2:</b></td><td><input type=\"number\" name=\"data2\" value=\"{data2}\" min=\"0\" max=\"255\" step=\"1\" id=\"dva\" required>&nbsp;43 .. 155</td></tr><tr><td><b>Status:</b></td><td>{status}</td></tr><tr><td></td><td><input type=\"submit\" name = \"action\" value=\"Send\"></td></tr></table>\r\n";
 static const char *pageCommandSent = "<br><b style=\"color: green\">Command sent!</b>\r\n";
 static const char *pageDevID = "{deviceid}";
 int recvOK = 0;
@@ -195,7 +200,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 	char buff[2048];
 	char html_buff[2048];
 	char version_buff[10];
-	int len;
+	int len,n;
 	int value_parse_status = 0;
 
 	#ifdef NOOLITE_LOGGING
@@ -246,31 +251,32 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
-				if(os_strncmp(action, "Bind", 4) == 0 && strlen(action) == 4) {
-					if(noolite_sendCommand(atoi(channel_num), 15, 0, 0, 0, 0, 0)) {
-						os_sprintf(status, "Bind OK");
-					}
-					else {
-						os_sprintf(status, "Bind ERR");
-					}
-				} else if(os_strncmp(action, "Unbind", 6) == 0 && strlen(action) == 6) {
-					if(noolite_sendCommand(atoi(channel_num), 9, 0, 0, 0, 0, 0)) {
-						os_sprintf(status, "Unbind OK");
-					}
-					else {
-						os_sprintf(status, "Unbind ERR");
+			if(isItNum(channel_num, n)) {
+				if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
+					if(os_strncmp(action, "Bind", 4) == 0 && strlen(action) == 4) {
+						if(noolite_sendCommand(atoi(channel_num), 15, 0, 0, 0, 0, 0)) {
+							os_sprintf(status, "Bind OK");
+						} else {
+							os_sprintf(status, "Bind ERR");
+						}
+					} else if(os_strncmp(action, "Unbind", 6) == 0 && strlen(action) == 6) {
+						if(noolite_sendCommand(atoi(channel_num), 9, 0, 0, 0, 0, 0)) {
+							os_sprintf(status, "Unbind OK");
+						} else {
+							os_sprintf(status, "Unbind ERR");
+						}
+					} else {
+						os_sprintf(status, "Err");
 					}
 				} else {
 					os_sprintf(status, "Err");
 				}
-			}
-			else {
-				os_sprintf(status, "Err");
+			} else {
+				os_sprintf(status, "Channel number incorrect");
 			}
 		}
 
-		if(strlen(channel_num) == 0)
+		if(strlen(channel_num) == 0 || !isItNum(channel_num, n) || atoi(channel_num) > 31)
 			os_sprintf(channel_num, "0");
 		os_sprintf(html_buff, "%s", str_replace(pageSetBindChannel, "{channel}", channel_num));
 		if(strlen(status) == 0)
@@ -295,32 +301,32 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 		{
 			noolite_control_server_get_key_val("channel", sizeof(channel_num), request, channel_num);
 			noolite_control_server_get_key_val("action", sizeof(action), request, action);
-			if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
-				if(os_strncmp(action, "On", 2) == 0 && strlen(action) == 2) {
-					if(noolite_sendCommand(atoi(channel_num), 2, 0, 0, 0, 0, 0)) {
-						os_sprintf(status, "On");
-					}
-					else {
-						os_sprintf(status, "On ERR");
-					}
-				} else if(os_strncmp(action, "Off", 3) == 0 && strlen(action) == 3) {
-					if (noolite_sendCommand(atoi(channel_num), 0, 0, 0, 0, 0, 0)) {
-						os_sprintf(status, "Off");
-					}
-					else {
-						os_sprintf(status, "Off ERR");
+			if(isItNum(channel_num, n)) {
+				if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
+					if(os_strncmp(action, "On", 2) == 0 && strlen(action) == 2) {
+						if(noolite_sendCommand(atoi(channel_num), 2, 0, 0, 0, 0, 0)) {
+							os_sprintf(status, "On");
+						} else {
+							os_sprintf(status, "On ERR");
+						}
+					} else if(os_strncmp(action, "Off", 3) == 0 && strlen(action) == 3) {
+						if (noolite_sendCommand(atoi(channel_num), 0, 0, 0, 0, 0, 0)) {
+							os_sprintf(status, "Off");
+						} else {
+							os_sprintf(status, "Off ERR");
+						}
+					} else {
+						os_sprintf(status, "Err");
 					}
 				} else {
 					os_sprintf(status, "Err");
 				}
-			}
-			else {
-				os_sprintf(status, "Err");
+			} else {
+				os_sprintf(status, "Channel number incorrect");
 			}
 		}
 
-
-		if(strlen(channel_num) == 0)
+		if(strlen(channel_num) == 0 || !isItNum(channel_num, n) || atoi(channel_num) > 31)
 			os_sprintf(channel_num, "0");
 		os_sprintf(html_buff, "%s", str_replace(pageSetNooliteControl, "{channel}", channel_num));
 		if(strlen(status) == 0)
@@ -353,16 +359,31 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 			value_parse_status = 0;
 			char err_buff_saved[1024];
 			if(os_strncmp(action, "Send", 4) == 0 && strlen(action) == 4) {
-				if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
-					value_parse_status++;
+				if(isItNum(channel_num, n)) {
+					if(atoi(channel_num) >= 0 && atoi(channel_num) <= 31) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						os_sprintf(status, "Channel number incorrect");
+					}
 				} else {
 					value_parse_status = 0;
 					os_sprintf(status, "Channel number incorrect");
 				}
-				if((atoi(command) >= 0 && atoi(command) <= 10) || (atoi(command) >= 15 && atoi(command) <= 19)) {
-					value_parse_status++;
+				// command
+				if(isItNum(command, n)) {
+					if((atoi(command) >= 0 && atoi(command) <= 10) || (atoi(command) >= 15 && atoi(command) <= 19)) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						if(strlen(status) > 8) {
+							os_sprintf(err_buff_saved, "%s and %s", status, "Command number incorrect");
+							os_sprintf(status, err_buff_saved);
+						} else {
+							os_sprintf(status, "Command number incorrect");
+						}
+					}
 				} else {
-					value_parse_status = 0;
 					if(strlen(status) > 8) {
 						os_sprintf(err_buff_saved, "%s and %s", status, "Command number incorrect");
 						os_sprintf(status, err_buff_saved);
@@ -370,8 +391,19 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 						os_sprintf(status, "Command number incorrect");
 					}
 				}
-				if(atoi(format) >= 0 && atoi(format) <= 3) {
-					value_parse_status++;
+				// format
+				if(isItNum(format, n)) {
+					if(atoi(format) >= 0 && atoi(format) <= 3) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						if(strlen(status) > 8) {
+							os_sprintf(err_buff_saved, "%s and %s", status, "Format number incorrect");
+							os_sprintf(status, err_buff_saved);
+						} else {
+							os_sprintf(status, "Format number incorrect");
+						}
+					}
 				} else {
 					value_parse_status = 0;
 					if(strlen(status) > 8) {
@@ -381,8 +413,19 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 						os_sprintf(status, "Format number incorrect");
 					}
 				}
-				if(atoi(data0) >= 0 && atoi(data0) <= 255) {
-					value_parse_status++;
+				// data0
+				if(isItNum(data0, n)) {
+					if(atoi(data0) >= 0 && atoi(data0) <= 255) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						if(strlen(status) > 8) {
+							os_sprintf(err_buff_saved, "%s and %s", status, "Data0 incorrect");
+							os_sprintf(status, err_buff_saved);
+						} else {
+							os_sprintf(status, "Data0 incorrect");
+						}
+					}
 				} else {
 					value_parse_status = 0;
 					if(strlen(status) > 8) {
@@ -392,8 +435,19 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 						os_sprintf(status, "Data0 incorrect");
 					}
 				}
-				if(atoi(data1) >= 0 && atoi(data1) <= 255) {
-					value_parse_status++;
+				// data1
+				if(isItNum(data1, n)) {
+					if(atoi(data1) >= 0 && atoi(data1) <= 255) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						if(strlen(status) > 8) {
+							os_sprintf(err_buff_saved, "%s and %s", status, "Data1 incorrect");
+							os_sprintf(status, err_buff_saved);
+						} else {
+							os_sprintf(status, "Data1 incorrect");
+						}
+					}
 				} else {
 					value_parse_status = 0;
 					if(strlen(status) > 8) {
@@ -403,8 +457,19 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 						os_sprintf(status, "Data1 incorrect");
 					}
 				}
-				if(atoi(data2) >= 0 && atoi(data2) <= 255) {
-					value_parse_status++;
+				// data2
+				if(isItNum(data2, n)) {
+					if(atoi(data2) >= 0 && atoi(data2) <= 255) {
+						value_parse_status++;
+					} else {
+						value_parse_status = 0;
+						if(strlen(status) > 8) {
+							os_sprintf(err_buff_saved, "%s and %s", status, "Data2 incorrect");
+							os_sprintf(status, err_buff_saved);
+						} else {
+							os_sprintf(status, "Data2 incorrect");
+						}
+					}
 				} else {
 					value_parse_status = 0;
 					if(strlen(status) > 8) {
@@ -414,6 +479,7 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 						os_sprintf(status, "Data2 incorrect");
 					}
 				}
+				// summary error check
 				if(value_parse_status == 6) {
 					if(noolite_sendCommand(atoi(channel_num), atoi(command), atoi(format), atoi(data0), atoi(data1), atoi(data2), 0)) {
 						os_sprintf(status, "Sent");
@@ -435,17 +501,17 @@ static void ICACHE_FLASH_ATTR noolite_control_server_process_page(struct HttpdCo
 
 		}
 
-		if(strlen(channel_num) == 0)
+		if(strlen(channel_num) == 0 || !isItNum(channel_num, n) || atoi(channel_num) > 31)
 			os_sprintf(channel_num, "0");
-		if(strlen(command) == 0)
+		if(strlen(command) == 0 || !isItNum(command, n) || atoi(command) > 19)
 			os_sprintf(command, "0");
-		if(strlen(format) == 0)
+		if(strlen(format) == 0 || !isItNum(format, n) || atoi(format) > 3)
 			os_sprintf(format, "0");
-		if(strlen(data0) == 0)
+		if(strlen(data0) == 0 || !isItNum(data0, n) || atoi(data0) > 255)
 			os_sprintf(data0, "0");
-		if(strlen(data1) == 0)
+		if(strlen(data1) == 0 || !isItNum(data1, n) || atoi(data1) > 255)
 			os_sprintf(data1, "0");
-		if(strlen(data2) == 0)
+		if(strlen(data2) == 0 || !isItNum(data2, n) || atoi(data2) > 255)
 			os_sprintf(data2, "0");
 		os_sprintf(html_buff, "%s", str_replace(pageSetNooliteCustomControl, "{channel}", channel_num));
 		os_sprintf(html_buff, "%s", str_replace(html_buff, "{command}", command));
