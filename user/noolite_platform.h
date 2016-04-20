@@ -41,7 +41,7 @@ void noolite_platform_init(void);
 // Debug output
 #ifdef ESPOOLITE_LOGGING
 #undef ESPOOLITE_LOGGING
-#define ESPOOLITE_LOGGING(...) console_printf(__VA_ARGS__);
+#define ESPOOLITE_LOGGING(...) ets_uart_printf(__VA_ARGS__);
 #else
 #define ESPOOLITE_LOGGING(...)
 #endif
