@@ -1,7 +1,7 @@
 Example using ESP8266 and nooLite MT1132
 ========================================
 
-[По-русски / In Russian](README.ru.md)
+[РџРѕ-СЂСѓСЃСЃРєРё / In Russian](README.ru.md)
 
 <b>Article about this firmware http://geektimes.ru/post/242669/</b>
 
