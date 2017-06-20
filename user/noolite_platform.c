@@ -134,7 +134,7 @@ LOCAL void input_intr_handler(void *arg)
 {
   // Not that sure what this does yet and where the register is used for
   uint32 gpio_status = GPIO_REG_READ(GPIO_STATUS_ADDRESS);
-  // Ñlear interrupt status
+  // Ã‘lear interrupt status
   GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status);
   // Disable interrupt
   ETS_GPIO_INTR_DISABLE();
